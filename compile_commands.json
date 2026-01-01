@@ -1,0 +1,38 @@
+[
+{
+  "directory": "C:/own/jalan_engine/build",
+  "command": "C:\\w64devkit\\bin\\cc.exe -DPLATFORM_DESKTOP -IC:/own/jalan_engine/engine/include -IC:/own/jalan_engine/engine/src -isystem C:/own/jalan_engine/lib/raylib/include  -D_CRT_SECURE_NO_WARNINGS -g -O0 -Wall -Wextra -std=gnu11 -o engine\\CMakeFiles\\engine.dir\\src\\core\\dynamic_array.c.obj -c C:\\own\\jalan_engine\\engine\\src\\core\\dynamic_array.c",
+  "file": "C:\\own\\jalan_engine\\engine\\src\\core\\dynamic_array.c",
+  "output": "engine\\CMakeFiles\\engine.dir\\src\\core\\dynamic_array.c.obj"
+},
+{
+  "directory": "C:/own/jalan_engine/build",
+  "command": "C:\\w64devkit\\bin\\cc.exe -DPLATFORM_DESKTOP -IC:/own/jalan_engine/engine/include -IC:/own/jalan_engine/engine/src -isystem C:/own/jalan_engine/lib/raylib/include  -D_CRT_SECURE_NO_WARNINGS -g -O0 -Wall -Wextra -std=gnu11 -o engine\\CMakeFiles\\engine.dir\\src\\core\\engine.c.obj -c C:\\own\\jalan_engine\\engine\\src\\core\\engine.c",
+  "file": "C:\\own\\jalan_engine\\engine\\src\\core\\engine.c",
+  "output": "engine\\CMakeFiles\\engine.dir\\src\\core\\engine.c.obj"
+},
+{
+  "directory": "C:/own/jalan_engine/build",
+  "command": "C:\\w64devkit\\bin\\cc.exe -DPLATFORM_DESKTOP -IC:/own/jalan_engine/engine/include -IC:/own/jalan_engine/engine/src -isystem C:/own/jalan_engine/lib/raylib/include  -D_CRT_SECURE_NO_WARNINGS -g -O0 -Wall -Wextra -std=gnu11 -o engine\\CMakeFiles\\engine.dir\\src\\core\\scene.c.obj -c C:\\own\\jalan_engine\\engine\\src\\core\\scene.c",
+  "file": "C:\\own\\jalan_engine\\engine\\src\\core\\scene.c",
+  "output": "engine\\CMakeFiles\\engine.dir\\src\\core\\scene.c.obj"
+},
+{
+  "directory": "C:/own/jalan_engine/build",
+  "command": "C:\\w64devkit\\bin\\cc.exe -DPLATFORM_DESKTOP -IC:/own/jalan_engine/engine/include -IC:/own/jalan_engine/engine/src -isystem C:/own/jalan_engine/lib/raylib/include  -D_CRT_SECURE_NO_WARNINGS -g -O0 -Wall -Wextra -std=gnu11 -o engine\\CMakeFiles\\engine.dir\\src\\render\\sprite.c.obj -c C:\\own\\jalan_engine\\engine\\src\\render\\sprite.c",
+  "file": "C:\\own\\jalan_engine\\engine\\src\\render\\sprite.c",
+  "output": "engine\\CMakeFiles\\engine.dir\\src\\render\\sprite.c.obj"
+},
+{
+  "directory": "C:/own/jalan_engine/build",
+  "command": "C:\\w64devkit\\bin\\cc.exe -DPLATFORM_DESKTOP -IC:/own/jalan_engine/editor/include -IC:/own/jalan_engine/editor/src -IC:/own/jalan_engine/engine/include -isystem C:/own/jalan_engine/lib/raylib/include  -D_CRT_SECURE_NO_WARNINGS -g -O0 -Wall -Wextra -std=gnu11 -o editor\\CMakeFiles\\editor.dir\\src\\main.c.obj -c C:\\own\\jalan_engine\\editor\\src\\main.c",
+  "file": "C:\\own\\jalan_engine\\editor\\src\\main.c",
+  "output": "editor\\CMakeFiles\\editor.dir\\src\\main.c.obj"
+},
+{
+  "directory": "C:/own/jalan_engine/build",
+  "command": "C:\\w64devkit\\bin\\cc.exe -DPLATFORM_DESKTOP -IC:/own/jalan_engine/jalanallas/include -IC:/own/jalan_engine/jalanallas/src -IC:/own/jalan_engine/engine/include -isystem C:/own/jalan_engine/lib/raylib/include  -D_CRT_SECURE_NO_WARNINGS -g -O0 -Wall -Wextra -std=gnu11 -o jalanallas\\CMakeFiles\\jalanallas.dir\\src\\main.c.obj -c C:\\own\\jalan_engine\\jalanallas\\src\\main.c",
+  "file": "C:\\own\\jalan_engine\\jalanallas\\src\\main.c",
+  "output": "jalanallas\\CMakeFiles\\jalanallas.dir\\src\\main.c.obj"
+}
+]
