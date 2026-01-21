@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 project(jalan)
 
 set(CMAKE_C_STANDARD 99)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Add include directory
 include_directories(include)
