@@ -108,6 +108,8 @@ Player player;
 
 Rectangle gameArea = {0, 0, GAME_AREA_WIDTH, GAME_AREA_HEIGHT};
 
+Rectangle waterArea = {0};
+
 Rectangle exitGateway = {0};
 
 bool gameWon = false;
@@ -125,6 +127,8 @@ Enemy skeleton;
 Block blocks[5] = {0};
 
 Block *liftableBlock = NULL;
+
+float jumpCooldown = 0.0f;
 
 int main(int argc, char *argv[]) {
     
@@ -144,22 +148,53 @@ int main(int argc, char *argv[]) {
     //Initialize exit gateway at far right, requiring 4+ boxes to reach (4*50=200 pixels high)
     exitGateway = (Rectangle){GAME_AREA_WIDTH - 80, GAME_AREA_HEIGHT - 300, 60, 80};
 
-    //Initialize blocks (5 cube-like blocks, spaced apart to avoid overlapping)
+    //Initialize water area in the middle of the map (300px wide, at ground level)
+    waterArea = (Rectangle){(GAME_AREA_WIDTH - 300) / 2, GAME_AREA_HEIGHT - 20, 300, 20};
+
+    //Initialize blocks (5 cube-like blocks, spaced apart to avoid overlapping and water)
     for(int i = 0; i < 5; i++) {
         int x = (GAME_AREA_WIDTH / 6) * (i + 1) - 25; // Space them evenly across the game area
+        // If block would be in water area, move it to the left
+        if (x > waterArea.x - 60 && x < waterArea.x + waterArea.width + 10) {
+            x = waterArea.x - 80; // Place it to the left of water area
+        }
         blocks[i].boundingBox = (Rectangle){x, GAME_AREA_HEIGHT - 50, 50, 50}; // 50x50 cube-like blocks
         blocks[i].speed = (Vector2){0, 0};
     }
 
-    //Initiate trees
+    //Initiate trees (avoid water area)
     for(int i = 0; i < 10; i++) {
-        trees[i].boundingBox = (Rectangle){GetRandomValue(0, GAME_AREA_WIDTH - 50), GAME_AREA_HEIGHT - 150, 50, 150};
+        int x;
+        int attempts = 0;
+        do {
+            x = GetRandomValue(0, GAME_AREA_WIDTH - 50);
+            attempts++;
+        } while ((x > waterArea.x - 60 && x < waterArea.x + waterArea.width + 10) && attempts < 10);
+        
+        // If we couldn't find a good position, place it far from water
+        if (attempts >= 10) {
+            x = (i < 5) ? GetRandomValue(0, waterArea.x - 100) : GetRandomValue(waterArea.x + waterArea.width + 50, GAME_AREA_WIDTH - 50);
+        }
+        
+        trees[i].boundingBox = (Rectangle){x, GAME_AREA_HEIGHT - 150, 50, 150};
         trees[i].type = BACKGROUND_TREE;
     }
 
-    //Initiate graves
+    //Initiate graves (avoid water area)
     for(int i = 0; i < 10; i++) {
-        graves[i].boundingBox = (Rectangle){GetRandomValue(0, GAME_AREA_WIDTH - 40), GAME_AREA_HEIGHT - 30, 40, 30};
+        int x;
+        int attempts = 0;
+        do {
+            x = GetRandomValue(0, GAME_AREA_WIDTH - 40);
+            attempts++;
+        } while ((x > waterArea.x - 50 && x < waterArea.x + waterArea.width + 10) && attempts < 10);
+        
+        // If we couldn't find a good position, place it far from water
+        if (attempts >= 10) {
+            x = (i < 5) ? GetRandomValue(0, waterArea.x - 80) : GetRandomValue(waterArea.x + waterArea.width + 40, GAME_AREA_WIDTH - 40);
+        }
+        
+        graves[i].boundingBox = (Rectangle){x, GAME_AREA_HEIGHT - 30, 40, 30};
         graves[i].type = BACKGROUND_GRAVE;
     }
 
@@ -210,8 +245,12 @@ int renderFrame() {
     // Begin camera mode to apply camera transformations
     BeginMode2D(camera);
     
-    //Draw the game area
+    //Draw the game area (keep original gray background)
     DrawRectangleRec(gameArea, LIGHTGRAY);
+    
+    //Draw brown underground area below the game area
+    Rectangle undergroundArea = {gameArea.x, gameArea.y + gameArea.height, gameArea.width, 50};
+    DrawRectangleRec(undergroundArea, BROWN);
 
     if(player.state == PLAYER_HIDING) {
         //Draw the player as a red square. Draw player before trees and graves to appear behind
@@ -225,6 +264,9 @@ int renderFrame() {
         //Draw the player as a red square. Draw player after trees and graves to appear in front
         DrawRectangle(player.boundingBox.x, player.boundingBox.y, player.boundingBox.width, player.boundingBox.height, RED);
     }
+
+    //Draw water area
+    DrawRectangleRec(waterArea, BLUE);
 
     
     
@@ -269,8 +311,8 @@ int renderFrame() {
 }
 
 int updateCamera() {
-    // Center the camera on the player
-    camera.target = (Vector2){player.boundingBox.x + player.boundingBox.width / 2, player.boundingBox.y + player.boundingBox.height / 2};
+    // Center the camera on the player, but move it 20 pixels down to simulate underground view
+    camera.target = (Vector2){player.boundingBox.x + player.boundingBox.width / 2, player.boundingBox.y + player.boundingBox.height / 2 + 20};
     camera.offset = (Vector2){SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2};
     camera.zoom = 1.0f;
 
@@ -288,12 +330,12 @@ int updateCamera() {
         camera.target.x = gameArea.x + gameArea.width - camera.offset.x / camera.zoom;
     }
 
-    // Clamp vertical position
+    // Clamp vertical position (allow 20 pixels underground view)
     if (cameraTop < gameArea.y) {
         camera.target.y = gameArea.y + camera.offset.y / camera.zoom;
     }
-    if (cameraBottom > gameArea.y + gameArea.height) {
-        camera.target.y = gameArea.y + gameArea.height - camera.offset.y / camera.zoom;
+    if (cameraBottom > gameArea.y + gameArea.height + 20) {
+        camera.target.y = gameArea.y + gameArea.height + 20 - camera.offset.y / camera.zoom;
     }
 
     
@@ -510,31 +552,33 @@ int updateGame() {
     bool playerOnBlock = false;
     if(player.speed.y >= 0) { // Only check when falling or stationary
         for(int i = 0; i < 5; i++) {
-            if(&blocks[i] != liftableBlock || !player.isLifting) { // Don't collide with lifted block
-                Rectangle nextPlayerPos = player.boundingBox;
-                nextPlayerPos.y += player.speed.y;
+            // Allow collision with all blocks, but don't position lifted blocks
+            Rectangle nextPlayerPos = player.boundingBox;
+            nextPlayerPos.y += player.speed.y;
+            
+            if(CheckCollisionRecs(nextPlayerPos, blocks[i].boundingBox)) {
+                // Check if player is coming from above
+                float playerBottom = player.boundingBox.y + player.boundingBox.height;
+                float blockTop = blocks[i].boundingBox.y;
                 
-                if(CheckCollisionRecs(nextPlayerPos, blocks[i].boundingBox)) {
-                    // Check if player is coming from above
-                    float playerBottom = player.boundingBox.y + player.boundingBox.height;
-                    float blockTop = blocks[i].boundingBox.y;
-                    
-                    if(playerBottom <= blockTop + 5) { // Allow small overlap for landing
-                        // Player landed on top of block
+                if(playerBottom <= blockTop + 5) { // Allow small overlap for landing
+                    // Player landed on top of block (but don't move lifted blocks)
+                    if(&blocks[i] != liftableBlock || !player.isLifting) {
                         player.boundingBox.y = blocks[i].boundingBox.y - player.boundingBox.height;
-                        player.speed.y = 0;
-                        player.onGround = true;
-                        playerOnBlock = true;
-                        if(player.state == PLAYER_JUMPING || player.state == PLAYER_FALLING) {
-                            // Only change to IDLE if not lifting
-                            if(!player.isLifting) {
-                                player.state = PLAYER_IDLE;
-                            } else {
-                                player.state = PLAYER_LIFTING;
-                            }
-                        }
-                        break;
                     }
+                    player.speed.y = 0;
+                    player.onGround = true;
+                    playerOnBlock = true;
+                    
+                    if(player.state == PLAYER_JUMPING || player.state == PLAYER_FALLING) {
+                        // Only change to IDLE if not lifting
+                        if(!player.isLifting) {
+                            player.state = PLAYER_IDLE;
+                        } else {
+                            player.state = PLAYER_LIFTING;
+                        }
+                    }
+                    break;
                 }
             }
         }
@@ -602,7 +646,26 @@ int updateGame() {
         liftableBlock = NULL;
         if(player.state != PLAYER_HIDING) {
             for(int i = 0; i < 5; i++) {
-                if(CheckCollisionRecs(player.boundingBox, blocks[i].boundingBox)) {
+                // Check if player is touching the block (either overlapping or standing on top)
+                bool touching = CheckCollisionRecs(player.boundingBox, blocks[i].boundingBox);
+                
+                // Also check if player is standing on top of the block
+                if(!touching) {
+                    float playerBottom = player.boundingBox.y + player.boundingBox.height;
+                    float blockTop = blocks[i].boundingBox.y;
+                    float playerLeft = player.boundingBox.x;
+                    float playerRight = player.boundingBox.x + player.boundingBox.width;
+                    float blockLeft = blocks[i].boundingBox.x;
+                    float blockRight = blocks[i].boundingBox.x + blocks[i].boundingBox.width;
+                    
+                    // Check if player is standing on this block (within 5 pixels and horizontally overlapping)
+                    if(playerBottom >= blockTop && playerBottom <= blockTop + 5 && 
+                       playerRight > blockLeft && playerLeft < blockRight) {
+                        touching = true;
+                    }
+                }
+                
+                if(touching) {
                     player.canLift = true;
                     liftableBlock = &blocks[i];
                     break;
@@ -649,17 +712,49 @@ int handleInput() {
         return 0; // Exit early to prevent movement while hiding
     }
     
+    // Handle jumping FIRST, before movement, to ensure it's not affected by position changes
+    // Update jump cooldown
+    if(jumpCooldown > 0) {
+        jumpCooldown -= GetFrameTime();
+    }
+    
+    if ((IsKeyDown(KEY_W) || IsKeyDown(KEY_UP)) && jumpCooldown <= 0) {
+        // Debug output for jump attempts
+        printf("Jump attempt - onGround: %s, isLifting: %s, state: %d\n", 
+               player.onGround ? "true" : "false", 
+               player.isLifting ? "true" : "false", 
+               player.state);
+        
+        if(player.onGround || player.state == PLAYER_LIFTING) {
+            // W key or Up arrow is being held down
+            player.speed.y = -10; // Jumping action
+            if(player.state != PLAYER_LIFTING) {
+                player.state = PLAYER_JUMPING;
+            }
+            player.onGround = false; // Immediately set onGround to false
+            jumpCooldown = 0.3f; // 300ms cooldown to prevent continuous jumping
+            printf("Jump executed!\n");
+        } else {
+            printf("Jump blocked - not on ground and not lifting\n");
+        }
+    }
+    
+    // Handle movement input after jump
     if(player.onGround || player.state == PLAYER_LIFTING) {
+        // Check if player is in water for slower movement
+        bool playerInWater = CheckCollisionRecs(player.boundingBox, waterArea);
+        float moveSpeed = playerInWater ? 2.5f : 5.0f; // Slower movement in water
+        
         if(IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) {
             // A key or Left arrow is being held down
-            player.speed.x = -5;
+            player.speed.x = -moveSpeed;
             if(player.state != PLAYER_LIFTING) {
                 player.state = PLAYER_RUNNING;
             }
         } else 
         if(IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) {
             // D key or Right arrow is being held down
-            player.speed.x = 5;
+            player.speed.x = moveSpeed;
             if(player.state != PLAYER_LIFTING) {
                 player.state = PLAYER_RUNNING;
             }
@@ -670,15 +765,6 @@ int handleInput() {
             }
         }
 
-        // Change to IsKeyPressed for single jump input (allow jumping while lifting)
-        if (IsKeyPressed(KEY_W) || IsKeyPressed(KEY_UP)) {
-            // W key or Up arrow was just pressed (single press)
-            player.speed.y = -10; // Jumping action
-            if(player.state != PLAYER_LIFTING) {
-                player.state = PLAYER_JUMPING;
-            }
-            player.onGround = false; // Immediately set onGround to false
-        }
     }
 
     if (IsKeyPressed(KEY_SPACE)) {
