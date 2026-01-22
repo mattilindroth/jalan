@@ -92,6 +92,8 @@ int checkPlayerCollisionWithEnemy(Player *player, Enemy *enemy);
 
 int updateCamera();
 
+int resetPlayer();
+
 int handleInput();
 
 int updateGame();
@@ -104,6 +106,8 @@ int renderFrame();
 
 Camera2D camera = {0};
 
+RenderTexture2D fogMask;
+
 Player player;
 
 Rectangle gameArea = {0, 0, GAME_AREA_WIDTH, GAME_AREA_HEIGHT};
@@ -113,6 +117,10 @@ Rectangle waterArea = {0};
 Rectangle exitGateway = {0};
 
 bool gameWon = false;
+
+bool playerDead = false;
+float deathFadeTimer = 0.0f;
+float deathFadeDuration = 1.0f;
 
 BackgroundTree trees[10] = {0};
 
@@ -130,20 +138,39 @@ Block *liftableBlock = NULL;
 
 float jumpCooldown = 0.0f;
 
+// Lightning system
+float lightningTimer = 0.0f;
+float nextLightningTime = 0.0f;
+bool isLightning = false;
+Vector2 lightningStart = {0};
+Vector2 lightningEnd = {0};
+
+// Rain system
+#define MAX_RAINDROPS 200
+typedef struct {
+    Vector2 position;
+    Vector2 velocity;
+} Raindrop;
+
+Raindrop raindrops[MAX_RAINDROPS];
+
 int main(int argc, char *argv[]) {
     
     // Initialize the window
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Jalannallas - the final nightmare V0.1 Alpha");
 
     SetTargetFPS(60);
+    
+    // Create a render texture for fog mask
+    fogMask = LoadRenderTexture(SCREEN_WIDTH, SCREEN_HEIGHT);
     //Initialize player. he/she is on ground at start and not hiding.
     player = (Player){{2, SCREEN_HEIGHT * 2}, {0, 0}, {2, SCREEN_HEIGHT * 2, 50, 50}, PLAYER_IDLE, true, false, false, false};
 
-    ghost = (Enemy){{GAME_AREA_WIDTH - 100, GAME_AREA_HEIGHT - 100}, {-7, 0}, {GAME_AREA_WIDTH - 100, GAME_AREA_HEIGHT - 100, 40, 60}, ENEMY_TYPE_GHOST, false, false, false, 0};
+    ghost = (Enemy){{GAME_AREA_WIDTH - 100, GAME_AREA_HEIGHT - 100}, {-6.3f, 0}, {GAME_AREA_WIDTH - 100, GAME_AREA_HEIGHT - 100, 40, 60}, ENEMY_TYPE_GHOST, false, false, false, 0};
 
-    zombie = (Enemy){{GAME_AREA_WIDTH - 300, GAME_AREA_HEIGHT - 70}, {-3, 0}, {GAME_AREA_WIDTH - 300, GAME_AREA_HEIGHT - 70, 40, 60}, ENEMY_TYPE_ZOMBIE, false, false, false, 0};
+    zombie = (Enemy){{GAME_AREA_WIDTH - 300, GAME_AREA_HEIGHT - 70}, {-2.7f, 0}, {GAME_AREA_WIDTH - 300, GAME_AREA_HEIGHT - 70, 40, 60}, ENEMY_TYPE_ZOMBIE, false, false, false, 0};
 
-    skeleton = (Enemy){{GAME_AREA_WIDTH - 500, GAME_AREA_HEIGHT - 60}, {-2, 0}, {GAME_AREA_WIDTH - 500, GAME_AREA_HEIGHT - 60, 40, 60}, ENEMY_TYPE_SKELETON, false, false, false, 0};
+    skeleton = (Enemy){{GAME_AREA_WIDTH - 500, GAME_AREA_HEIGHT - 60}, {-1.26f, 0}, {GAME_AREA_WIDTH - 500, GAME_AREA_HEIGHT - 60, 40, 60}, ENEMY_TYPE_SKELETON, false, false, false, 0};
 
     //Initialize exit gateway at far right, requiring 4+ boxes to reach (4*50=200 pixels high)
     exitGateway = (Rectangle){GAME_AREA_WIDTH - 80, GAME_AREA_HEIGHT - 300, 60, 80};
@@ -197,7 +224,20 @@ int main(int argc, char *argv[]) {
         graves[i].boundingBox = (Rectangle){x, GAME_AREA_HEIGHT - 30, 40, 30};
         graves[i].type = BACKGROUND_GRAVE;
     }
+    // Initialize lightning system
+    nextLightningTime = GetRandomValue(2, 5); // First lightning in 2-5 seconds (60% more frequent)
 
+    // Initialize rain system
+    for(int i = 0; i < MAX_RAINDROPS; i++) {
+        raindrops[i].position = (Vector2){
+            GetRandomValue(0, GAME_AREA_WIDTH), 
+            GetRandomValue(-GAME_AREA_HEIGHT, 0)
+        };
+        raindrops[i].velocity = (Vector2){
+            GetRandomValue(-2, 2),  // Wind effect (-2 to 2 pixels per frame)
+            GetRandomValue(3, 6)    // Falling speed (3 to 6 pixels per frame)
+        };
+    }
     // Main game loop
     while (!WindowShouldClose()) {       
 
@@ -220,6 +260,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Close window and OpenGL context
+    UnloadRenderTexture(fogMask);
     CloseWindow();
 
     return 0;
@@ -270,9 +311,6 @@ int renderFrame() {
 
     
     
-    //Draw the ghost as a blue square
-    DrawRectangle(ghost.boundingBox.x, ghost.boundingBox.y, ghost.boundingBox.width, ghost.boundingBox.height, BLUE);
-
     //Draw the zombie as a grayish green square
     DrawRectangle(zombie.boundingBox.x, zombie.boundingBox.y, zombie.boundingBox.width, zombie.boundingBox.height, GREEN);
 
@@ -296,10 +334,90 @@ int renderFrame() {
                 exitGateway.width/2, exitGateway.height/2, BLACK);
     DrawText("EXIT", exitGateway.x + 15, exitGateway.y + 35, 12, WHITE);   
 
+    //Draw rain (affected by fog of war and lightning)
+    for(int i = 0; i < MAX_RAINDROPS; i++) {
+        DrawRectangle((int)raindrops[i].position.x, (int)raindrops[i].position.y, 5, 16, DARKBLUE);
+    }
+
     // End camera mode
     EndMode2D();
     
-    // Draw win message if game is won
+    if(!isLightning) {
+        // Normal darkness - apply fog mask
+        // Calculate player position in screen coordinates
+        Vector2 playerScreenPos = GetWorldToScreen2D(
+            (Vector2){player.boundingBox.x + player.boundingBox.width/2, 
+                      player.boundingBox.y + player.boundingBox.height/2}, 
+            camera);
+    
+    // Create fog mask
+    BeginTextureMode(fogMask);
+        ClearBackground(BLACK); // Complete darkness background
+        
+        // Draw a gradient circle - from "just before dark" to complete darkness
+        DrawCircleGradient((int)playerScreenPos.x, (int)playerScreenPos.y, 450, 
+                          (Color){80, 80, 80, 255},  // Dark gray at center - "just before dark"
+                          BLACK);                    // Complete darkness at edges
+    EndTextureMode();
+    
+    // Apply the fog mask to darken areas outside visibility
+    BeginBlendMode(BLEND_MULTIPLIED);
+        DrawTextureRec(fogMask.texture, (Rectangle){0, 0, SCREEN_WIDTH, -SCREEN_HEIGHT}, (Vector2){0, 0}, WHITE);
+    EndBlendMode();
+    
+    // Draw glowing ghost after fog mask - it glows in the dark
+    Vector2 ghostScreenPos = GetWorldToScreen2D(
+        (Vector2){ghost.boundingBox.x + ghost.boundingBox.width/2, 
+                  ghost.boundingBox.y + ghost.boundingBox.height/2}, 
+        camera);
+    
+    // Draw ghost with glow effect using additive blending
+    BeginBlendMode(BLEND_ADDITIVE);
+        // Outer glow
+        DrawCircleGradient((int)ghostScreenPos.x, (int)ghostScreenPos.y, 30, 
+                          (Color){0, 50, 100, 100}, (Color){0, 20, 40, 0});
+        // Inner glow  
+        DrawCircleGradient((int)ghostScreenPos.x, (int)ghostScreenPos.y, 15, 
+                          (Color){50, 100, 150, 150}, (Color){0, 50, 100, 50});
+    EndBlendMode();
+    
+    // Draw the ghost body itself with bright color
+    DrawCircle((int)ghostScreenPos.x, (int)ghostScreenPos.y, 8, (Color){100, 150, 255, 200});
+    } else {
+        // Lightning is active - everything is visible, ghost is invisible
+        // Draw lightning bolt
+        DrawLineEx(lightningStart, lightningEnd, 3, WHITE);
+        
+        // Add some jagged branches to make it look more like lightning
+        for(int i = 0; i < 3; i++) {
+            Vector2 branch1 = {lightningStart.x + GetRandomValue(-20, 20), lightningStart.y + GetRandomValue(100, 200)};
+            Vector2 branch2 = {branch1.x + GetRandomValue(-30, 30), branch1.y + GetRandomValue(50, 100)};
+            DrawLineEx(branch1, branch2, 2, WHITE);
+        }
+        
+        // Flash effect - brighten the entire screen slightly
+        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, (Color){255, 255, 255, 30});
+    }
+    
+    // Draw death screen if player is dead
+    if(playerDead) {
+        // Calculate fade progress (0.0 to 1.0)
+        float fadeProgress = deathFadeTimer / deathFadeDuration;
+        if(fadeProgress > 1.0f) fadeProgress = 1.0f;
+        
+        // Fade to white overlay
+        unsigned char fadeAlpha = (unsigned char)(fadeProgress * 255);
+        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, (Color){255, 255, 255, fadeAlpha});
+        
+        // Show death message after fade is complete
+        if(fadeProgress >= 1.0f) {
+            DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, WHITE); // Full white background
+            DrawText("YOU DIED", SCREEN_WIDTH/2 - 80, SCREEN_HEIGHT/2 - 60, 40, BLACK);
+            DrawText("Press ESC to quit", SCREEN_WIDTH/2 - 90, SCREEN_HEIGHT/2, 20, BLACK);
+            DrawText("Press any other key to try again", SCREEN_WIDTH/2 - 140, SCREEN_HEIGHT/2 + 30, 20, BLACK);
+        }
+    }
+    
     if(gameWon) {
         DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, (Color){0, 0, 0, 180}); // Semi-transparent overlay
         DrawText("CONGRATULATIONS!", SCREEN_WIDTH/2 - 120, SCREEN_HEIGHT/2 - 60, 30, GREEN);
@@ -488,12 +606,9 @@ int updateGame() {
 
     if(player.state != PLAYER_HIDING) { 
         if (checkPlayerCollisionWithEnemy(&player, &ghost)) {
-            // Simple response: reset player position to start
-            player.boundingBox.x = SCREEN_WIDTH / 2;
-            player.boundingBox.y = SCREEN_HEIGHT * 2;
-            player.speed.y = 0;
-            player.onGround = true;
-            player.state = PLAYER_IDLE;
+            // Trigger death sequence instead of immediate reset
+            playerDead = true;
+            deathFadeTimer = 0.0f;
         }
         enum CollisionState collisionWithZombie = checkPlayerCollisionWithEnemy(&player, &zombie);
         switch (collisionWithZombie) {
@@ -509,12 +624,9 @@ int updateGame() {
                 player.onGround = false;
                 break;
             case COLLISION_WALL:
-                // Simple response: reset player position to start
-                player.boundingBox.x = SCREEN_WIDTH / 2;
-                player.boundingBox.y = SCREEN_HEIGHT * 2;
-                player.speed.y = 0;
-                player.onGround = true;
-                player.state = PLAYER_IDLE;
+                // Trigger death sequence instead of immediate reset
+                playerDead = true;
+                deathFadeTimer = 0.0f;
                 break;
             default:
                 break;
@@ -535,12 +647,9 @@ int updateGame() {
                     player.onGround = false;
                     break;
                 case COLLISION_WALL:
-                    // Simple response: reset player position to start
-                    player.boundingBox.x = SCREEN_WIDTH / 2;
-                    player.boundingBox.y = SCREEN_HEIGHT * 2;
-                    player.speed.y = 0;
-                    player.onGround = true;
-                    player.state = PLAYER_IDLE;
+                    // Trigger death sequence instead of immediate reset
+                    playerDead = true;
+                    deathFadeTimer = 0.0f;
                     break;
                 default:
                     break;
@@ -690,10 +799,69 @@ int updateGame() {
         player.canHide = false; // Can't hide while already hiding
     }
 
+    // Update rain system
+    for(int i = 0; i < MAX_RAINDROPS; i++) {
+        // Update raindrop position
+        raindrops[i].position.x += raindrops[i].velocity.x;
+        raindrops[i].position.y += raindrops[i].velocity.y;
+        
+        // Reset raindrop if it goes below ground or off screen
+        if(raindrops[i].position.y > GAME_AREA_HEIGHT || 
+           raindrops[i].position.x < -50 || raindrops[i].position.x > GAME_AREA_WIDTH + 50) {
+            raindrops[i].position = (Vector2){
+                GetRandomValue(-50, GAME_AREA_WIDTH + 50), 
+                GetRandomValue(-100, -10)
+            };
+            raindrops[i].velocity = (Vector2){
+                GetRandomValue(-2, 2),  // Wind effect
+                GetRandomValue(3, 6)    // Falling speed
+            };
+        }
+    }
+
+    // Update lightning system
+    if(isLightning) {
+        lightningTimer -= GetFrameTime();
+        if(lightningTimer <= 0) {
+            isLightning = false;
+            nextLightningTime = GetRandomValue(3, 9); // Next lightning in 3-9 seconds (60% more frequent)
+        }
+    } else {
+        nextLightningTime -= GetFrameTime();
+        if(nextLightningTime <= 0) {
+            // Start lightning
+            isLightning = true;
+            lightningTimer = 0.5f; // 0.5 second duration
+            
+            // Random lightning position in screen coordinates
+            lightningStart = (Vector2){GetRandomValue(0, SCREEN_WIDTH), 0};
+            lightningEnd = (Vector2){lightningStart.x + GetRandomValue(-50, 50), SCREEN_HEIGHT};
+        }
+    }
+
+    // Update death fade timer
+    if(playerDead && deathFadeTimer < deathFadeDuration) {
+        deathFadeTimer += GetFrameTime();
+    }
+
     return 0;
 }
 
 int handleInput() {
+    
+    // If player is dead, handle death screen input
+    if(playerDead && deathFadeTimer >= deathFadeDuration) {
+        if(IsKeyPressed(KEY_ESCAPE)) {
+            // Exit the game
+            CloseWindow();
+        } else if(GetKeyPressed() != 0) {
+            // Any other key pressed - restart
+            resetPlayer();
+            playerDead = false;
+            deathFadeTimer = 0.0f;
+        }
+        return 0; // Don't process other input while dead
+    }
     
     // If game is won, only allow ESC to quit
     if(gameWon) {
@@ -725,9 +893,12 @@ int handleInput() {
                player.isLifting ? "true" : "false", 
                player.state);
         
-        if(player.onGround || player.state == PLAYER_LIFTING) {
-            // W key or Up arrow is being held down
-            player.speed.y = -10; // Jumping action
+        if(player.onGround) {
+            // W key or Up arrow is being held down - only allow jumping when on ground
+            // Check if player is in water for reduced jump power
+            bool playerInWater = CheckCollisionRecs(player.boundingBox, waterArea);
+            float jumpPower = playerInWater ? -6.0f : -9.0f; // Normal jump power, reduced only in water
+            player.speed.y = jumpPower;
             if(player.state != PLAYER_LIFTING) {
                 player.state = PLAYER_JUMPING;
             }
@@ -735,7 +906,7 @@ int handleInput() {
             jumpCooldown = 0.3f; // 300ms cooldown to prevent continuous jumping
             printf("Jump executed!\n");
         } else {
-            printf("Jump blocked - not on ground and not lifting\n");
+            printf("Jump blocked - not on ground\n");
         }
     }
     
@@ -743,7 +914,7 @@ int handleInput() {
     if(player.onGround || player.state == PLAYER_LIFTING) {
         // Check if player is in water for slower movement
         bool playerInWater = CheckCollisionRecs(player.boundingBox, waterArea);
-        float moveSpeed = playerInWater ? 2.5f : 5.0f; // Slower movement in water
+        float moveSpeed = playerInWater ? 2.25f : 4.5f; // Slower movement in water, reduced by 10%
         
         if(IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) {
             // A key or Left arrow is being held down
@@ -764,7 +935,18 @@ int handleInput() {
                 player.state = PLAYER_IDLE;
             }
         }
-
+    } else {
+        // Handle air movement (while jumping/falling) - also affected by water
+        bool playerInWater = CheckCollisionRecs(player.boundingBox, waterArea);
+        float airMoveSpeed = playerInWater ? 1.5f : 3.0f; // Reduced air control, even less in water
+        
+        if(IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) {
+            player.speed.x = -airMoveSpeed;
+        } else if(IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) {
+            player.speed.x = airMoveSpeed;
+        } else {
+            player.speed.x *= 0.9f; // Gradually reduce horizontal speed when no input
+        }
     }
 
     if (IsKeyPressed(KEY_SPACE)) {
@@ -806,5 +988,29 @@ int handleInput() {
     // if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
     //     // Right mouse button was just pressed (single press)
     // }
+    return 0;
+}
+
+int resetPlayer() {
+    // Reset player to starting position and state
+    player.boundingBox.x = 2;
+    player.boundingBox.y = SCREEN_HEIGHT * 2;
+    player.speed.x = 0;
+    player.speed.y = 0;
+    player.onGround = true;
+    player.state = PLAYER_IDLE;
+    player.isLifting = false;
+    player.canHide = false;
+    player.canLift = false;
+    
+    // Clear any lifted block
+    if(liftableBlock != NULL && player.isLifting) {
+        liftableBlock->speed.y = -3; // Release block
+    }
+    liftableBlock = NULL;
+    
+    // Reset jump cooldown
+    jumpCooldown = 0.0f;
+    
     return 0;
 }
