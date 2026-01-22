@@ -14,6 +14,7 @@
 enum PlayerState {
     PLAYER_IDLE,
     PLAYER_RUNNING,
+    PLAYER_SNEAKING,
     PLAYER_JUMPING,
     PLAYER_FALLING,
     PLAYER_HIDING,
@@ -30,7 +31,6 @@ enum CollisionState {
 enum EnemyType {
     ENEMY_TYPE_GHOST,
     ENEMY_TYPE_ZOMBIE,
-    ENEMY_TYPE_SKELETON,
 };
 
 typedef struct Block {
@@ -68,6 +68,7 @@ typedef struct Player {
     bool canHide;
     bool canLift;
     bool isLifting;
+    float breathTimer;      // How long player has been holding breath while hiding
 } Player;
 
 //Structure to represent an enemy
@@ -78,8 +79,12 @@ typedef struct Enemy {
     enum EnemyType type;
     bool onGround;
     bool isEliminated;
-    bool isFlattened; // For skeleton - when stomped
-    float flattenedTimer; // Timer for skeleton respawn
+    // Sound investigation state
+    bool isInvestigating;      // Is the enemy investigating a sound?
+    float investigateTimer;    // Time remaining to investigate
+    float patrolCenterX;       // X position to patrol around
+    float patrolDirection;     // Current patrol direction (1 or -1)
+    float originalSpeedX;      // Original speed to restore after investigation
 } Enemy;
 
 /************************
@@ -99,6 +104,12 @@ int handleInput();
 int updateGame();
 
 int renderFrame();
+
+int updateSoundWaves();
+
+int emitSoundWave(Vector2 origin, float intensity);
+
+int renderSoundWaves();
 
 /**************************
 ** Game object declarations
@@ -130,8 +141,6 @@ Enemy ghost;
 
 Enemy zombie;
 
-Enemy skeleton;
-
 Block blocks[5] = {0};
 
 Block *liftableBlock = NULL;
@@ -154,10 +163,30 @@ typedef struct {
 
 Raindrop raindrops[MAX_RAINDROPS];
 
+// Sound wave system - visual representation of noise
+#define MAX_SOUND_WAVES 10
+#define SOUND_WAVE_MAX_RADIUS 550.0f
+#define SOUND_WAVE_EXPAND_SPEED 7.0f
+#define SOUND_WAVE_EMIT_INTERVAL 0.15f
+#define BREATH_HOLD_MAX 10.0f           // Max seconds player can hold breath
+#define BREATH_SOUND_INTERVAL 0.4f      // Interval for involuntary sounds when out of breath
+
+typedef struct {
+    Vector2 origin;      // Center of the wave
+    float radius;        // Current radius
+    float maxRadius;     // Maximum radius before fading out completely
+    bool active;         // Is this wave active?
+    float intensity;     // Initial intensity (based on movement speed)
+} SoundWave;
+
+SoundWave soundWaves[MAX_SOUND_WAVES];
+float soundWaveEmitTimer = 0.0f;
+float breathSoundTimer = 0.0f;  // Timer for involuntary breath sounds
+
 int main(int argc, char *argv[]) {
     
     // Initialize the window
-    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Jalannallas - the final nightmare V0.1 Alpha");
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Jalannallas - the final nightmare V0.2 Alpha");
 
     SetTargetFPS(60);
     
@@ -166,11 +195,9 @@ int main(int argc, char *argv[]) {
     //Initialize player. he/she is on ground at start and not hiding.
     player = (Player){{2, SCREEN_HEIGHT * 2}, {0, 0}, {2, SCREEN_HEIGHT * 2, 50, 50}, PLAYER_IDLE, true, false, false, false};
 
-    ghost = (Enemy){{GAME_AREA_WIDTH - 100, GAME_AREA_HEIGHT - 100}, {-6.3f, 0}, {GAME_AREA_WIDTH - 100, GAME_AREA_HEIGHT - 100, 40, 60}, ENEMY_TYPE_GHOST, false, false, false, 0};
+    ghost = (Enemy){{GAME_AREA_WIDTH - 100, GAME_AREA_HEIGHT - 100}, {-6.3f, 0}, {GAME_AREA_WIDTH - 100, GAME_AREA_HEIGHT - 100, 40, 60}, ENEMY_TYPE_GHOST, false, false, false, 0, 0, 1.0f, -6.3f};
 
-    zombie = (Enemy){{GAME_AREA_WIDTH - 300, GAME_AREA_HEIGHT - 70}, {-2.7f, 0}, {GAME_AREA_WIDTH - 300, GAME_AREA_HEIGHT - 70, 40, 60}, ENEMY_TYPE_ZOMBIE, false, false, false, 0};
-
-    skeleton = (Enemy){{GAME_AREA_WIDTH - 500, GAME_AREA_HEIGHT - 60}, {-1.26f, 0}, {GAME_AREA_WIDTH - 500, GAME_AREA_HEIGHT - 60, 40, 60}, ENEMY_TYPE_SKELETON, false, false, false, 0};
+    zombie = (Enemy){{GAME_AREA_WIDTH - 300, GAME_AREA_HEIGHT - 70}, {-2.7f, 0}, {GAME_AREA_WIDTH - 300, GAME_AREA_HEIGHT - 70, 40, 60}, ENEMY_TYPE_ZOMBIE, false, false, false, 0, 0, 1.0f, -2.7f};
 
     //Initialize exit gateway at far right, requiring 4+ boxes to reach (4*50=200 pixels high)
     exitGateway = (Rectangle){GAME_AREA_WIDTH - 80, GAME_AREA_HEIGHT - 300, 60, 80};
@@ -238,6 +265,13 @@ int main(int argc, char *argv[]) {
             GetRandomValue(3, 6)    // Falling speed (3 to 6 pixels per frame)
         };
     }
+
+    // Initialize sound wave system
+    for(int i = 0; i < MAX_SOUND_WAVES; i++) {
+        soundWaves[i].active = false;
+        soundWaves[i].radius = 0;
+        soundWaves[i].maxRadius = SOUND_WAVE_MAX_RADIUS;
+    }
     // Main game loop
     while (!WindowShouldClose()) {       
 
@@ -296,7 +330,7 @@ int renderFrame() {
     if(player.state == PLAYER_HIDING) {
         //Draw the player as a red square. Draw player before trees and graves to appear behind
         DrawRectangle(player.boundingBox.x, player.boundingBox.y, player.boundingBox.width, player.boundingBox.height, RED);
-
+        
         renderTreesAndGraves();
     } else {
         
@@ -304,24 +338,14 @@ int renderFrame() {
 
         //Draw the player as a red square. Draw player after trees and graves to appear in front
         DrawRectangle(player.boundingBox.x, player.boundingBox.y, player.boundingBox.width, player.boundingBox.height, RED);
+        
     }
 
     //Draw water area
     DrawRectangleRec(waterArea, BLUE);
-
-    
     
     //Draw the zombie as a grayish green square
     DrawRectangle(zombie.boundingBox.x, zombie.boundingBox.y, zombie.boundingBox.width, zombie.boundingBox.height, GREEN);
-
-    //Draw the skeleton as a white square
-    if(skeleton.isFlattened) {
-        // Draw skeleton as flat white rectangle when stomped
-        DrawRectangle(skeleton.boundingBox.x, skeleton.boundingBox.y + 50, skeleton.boundingBox.width, 10, WHITE);
-    } else {
-        // Draw skeleton as normal white square
-        DrawRectangle(skeleton.boundingBox.x, skeleton.boundingBox.y, skeleton.boundingBox.width, skeleton.boundingBox.height, WHITE);
-    }
 
     //Draw blocks
     for(int i = 0; i < 5; i++) {
@@ -365,6 +389,10 @@ int renderFrame() {
         DrawTextureRec(fogMask.texture, (Rectangle){0, 0, SCREEN_WIDTH, -SCREEN_HEIGHT}, (Vector2){0, 0}, WHITE);
     EndBlendMode();
     
+    //Draw sound waves on top of the mask, to make them more visible to let the player know consequences of noise (action)
+    // Draw sound waves emanating from player (even when hiding, though player is still)
+    renderSoundWaves();
+
     // Draw glowing ghost after fog mask - it glows in the dark
     Vector2 ghostScreenPos = GetWorldToScreen2D(
         (Vector2){ghost.boundingBox.x + ghost.boundingBox.width/2, 
@@ -508,13 +536,60 @@ int checkPlayerCollisionWithEnemy(Player *player, Enemy *enemy) {
 int updateGame() {
 
     //Move ghost
+    // Check if ghost hears any sound waves
+    for(int i = 0; i < MAX_SOUND_WAVES; i++) {
+        if(soundWaves[i].active) {
+            // Check if sound wave reaches the ghost
+            float distToGhost = sqrtf(
+                powf(ghost.boundingBox.x + ghost.boundingBox.width/2 - soundWaves[i].origin.x, 2) +
+                powf(ghost.boundingBox.y + ghost.boundingBox.height/2 - soundWaves[i].origin.y, 2)
+            );
+            if(distToGhost <= soundWaves[i].radius && distToGhost >= soundWaves[i].radius - 20) {
+                // Ghost heard the sound! Start investigating
+                ghost.isInvestigating = true;
+                ghost.investigateTimer = 10.0f;
+                ghost.patrolCenterX = soundWaves[i].origin.x;
+                // Move towards the sound
+                if(ghost.boundingBox.x < ghost.patrolCenterX) {
+                    ghost.patrolDirection = 1.0f;
+                } else {
+                    ghost.patrolDirection = -1.0f;
+                }
+            }
+        }
+    }
+    
+    if(ghost.isInvestigating) {
+        // Investigating mode - patrol around the sound origin
+        ghost.investigateTimer -= GetFrameTime();
+        
+        if(ghost.investigateTimer <= 0) {
+            // Done investigating, return to normal patrol
+            ghost.isInvestigating = false;
+            ghost.speed.x = ghost.originalSpeedX;
+        } else {
+            // Patrol range expands over time: starts at 25px, expands to 200px as time runs out
+            // At 10s remaining: 25px range, at 0s: 200px range
+            float timeProgress = 1.0f - (ghost.investigateTimer / 10.0f); // 0 at start, 1 at end
+            float patrolRange = 25.0f + (175.0f * timeProgress); // 25 -> 200
+            
+            float distFromCenter = ghost.boundingBox.x - ghost.patrolCenterX;
+            if(distFromCenter > patrolRange) {
+                ghost.patrolDirection = -1.0f;
+            } else if(distFromCenter < -patrolRange) {
+                ghost.patrolDirection = 1.0f;
+            }
+            ghost.speed.x = fabsf(ghost.originalSpeedX) * ghost.patrolDirection;
+        }
+    }
+    
     ghost.boundingBox.x += ghost.speed.x;
-    //ghost.boundingBox.y += ghost.speed.y;
 
     ghost.boundingBox.y = ghost.position.y + (40 * sin(ghost.boundingBox.x / 90)) ; // Slight vertical movement for floating effect
 
     if(ghost.boundingBox.x < gameArea.x || (ghost.boundingBox.x + ghost.boundingBox.width) > (gameArea.x + gameArea.width)) {
         ghost.speed.x *= -1; // Reverse direction on wall collision
+        ghost.patrolDirection *= -1; // Also reverse patrol direction
     }
 
     //Move zombie
@@ -522,28 +597,60 @@ int updateGame() {
         zombie.boundingBox.x = zombie.position.x; // Return the zombie to original start place
         zombie.boundingBox.y = zombie.position.y;
     }
+    
+    // Check if zombie hears any sound waves
+    for(int i = 0; i < MAX_SOUND_WAVES; i++) {
+        if(soundWaves[i].active) {
+            // Check if sound wave reaches the zombie
+            float distToZombie = sqrtf(
+                powf(zombie.boundingBox.x + zombie.boundingBox.width/2 - soundWaves[i].origin.x, 2) +
+                powf(zombie.boundingBox.y + zombie.boundingBox.height/2 - soundWaves[i].origin.y, 2)
+            );
+            if(distToZombie <= soundWaves[i].radius && distToZombie >= soundWaves[i].radius - 20) {
+                // Zombie heard the sound! Start investigating
+                zombie.isInvestigating = true;
+                zombie.investigateTimer = 10.0f;
+                zombie.patrolCenterX = soundWaves[i].origin.x;
+                // Move towards the sound
+                if(zombie.boundingBox.x < zombie.patrolCenterX) {
+                    zombie.patrolDirection = 1.0f;
+                } else {
+                    zombie.patrolDirection = -1.0f;
+                }
+            }
+        }
+    }
+    
+    if(zombie.isInvestigating) {
+        // Investigating mode - patrol around the sound origin
+        zombie.investigateTimer -= GetFrameTime();
+        
+        if(zombie.investigateTimer <= 0) {
+            // Done investigating, return to normal patrol
+            zombie.isInvestigating = false;
+            zombie.speed.x = zombie.originalSpeedX;
+        } else {
+            // Patrol range expands over time: starts at 25px, expands to 200px as time runs out
+            // At 10s remaining: 25px range, at 0s: 200px range
+            float timeProgress = 1.0f - (zombie.investigateTimer / 10.0f); // 0 at start, 1 at end
+            float patrolRange = 25.0f + (175.0f * timeProgress); // 25 -> 200
+            
+            float distFromCenter = zombie.boundingBox.x - zombie.patrolCenterX;
+            if(distFromCenter > patrolRange) {
+                zombie.patrolDirection = -1.0f;
+            } else if(distFromCenter < -patrolRange) {
+                zombie.patrolDirection = 1.0f;
+            }
+            zombie.speed.x = fabsf(zombie.originalSpeedX) * zombie.patrolDirection;
+        }
+    }
+    
     zombie.boundingBox.x += zombie.speed.x;
     
     //zombie.boundingBox.y += zombie.speed.y;
     if(zombie.boundingBox.x < gameArea.x || (zombie.boundingBox.x + zombie.boundingBox.width) > (gameArea.x + gameArea.width)) {
         zombie.speed.x *= -1; // Reverse direction on wall collision
-    }
-
-    //Move skeleton
-    if(skeleton.isFlattened) {
-        // Skeleton is flattened, count down timer
-        skeleton.flattenedTimer -= GetFrameTime();
-        if(skeleton.flattenedTimer <= 0) {
-            // Respawn skeleton
-            skeleton.isFlattened = false;
-            skeleton.boundingBox.height = 60; // Restore normal height
-        }
-    } else {
-        // Normal skeleton movement
-        skeleton.boundingBox.x += skeleton.speed.x;
-        if(skeleton.boundingBox.x < gameArea.x || (skeleton.boundingBox.x + skeleton.boundingBox.width) > (gameArea.x + gameArea.width)) {
-            skeleton.speed.x *= -1; // Reverse direction on wall collision
-        }
+        zombie.patrolDirection *= -1; // Also reverse patrol direction
     }
 
     //Apply gravity to boxes
@@ -630,30 +737,6 @@ int updateGame() {
                 break;
             default:
                 break;
-        }
-        
-        // Check collision with skeleton
-        if(!skeleton.isFlattened) { // Only check collision if skeleton is not flattened
-            enum CollisionState collisionWithSkeleton = checkPlayerCollisionWithEnemy(&player, &skeleton);
-            switch (collisionWithSkeleton) {
-                case COLLISION_CEILING:
-                    // Player jumped on skeleton - flatten it
-                    skeleton.isFlattened = true;
-                    skeleton.flattenedTimer = 3.0f; // 3 seconds
-                    skeleton.boundingBox.height = 10; // Make it flat
-                    
-                    //Make the player bounce up a bit
-                    player.speed.y = -8;
-                    player.onGround = false;
-                    break;
-                case COLLISION_WALL:
-                    // Trigger death sequence instead of immediate reset
-                    playerDead = true;
-                    deathFadeTimer = 0.0f;
-                    break;
-                default:
-                    break;
-            }
         }
     }
 
@@ -836,6 +919,22 @@ int updateGame() {
             // Random lightning position in screen coordinates
             lightningStart = (Vector2){GetRandomValue(0, SCREEN_WIDTH), 0};
             lightningEnd = (Vector2){lightningStart.x + GetRandomValue(-50, 50), SCREEN_HEIGHT};
+            
+            // Lightning thunder causes enemies to lose interest - the loud sound distracts them
+            // They stop investigating but continue in their current direction
+            ghost.isInvestigating = false;
+            // Keep current direction, just restore normal speed magnitude
+            if(ghost.speed.x > 0) {
+                ghost.speed.x = fabsf(ghost.originalSpeedX);
+            } else {
+                ghost.speed.x = -fabsf(ghost.originalSpeedX);
+            }
+            zombie.isInvestigating = false;
+            if(zombie.speed.x > 0) {
+                zombie.speed.x = fabsf(zombie.originalSpeedX);
+            } else {
+                zombie.speed.x = -fabsf(zombie.originalSpeedX);
+            }
         }
     }
 
@@ -843,6 +942,9 @@ int updateGame() {
     if(playerDead && deathFadeTimer < deathFadeDuration) {
         deathFadeTimer += GetFrameTime();
     }
+
+    // Update sound wave system
+    updateSoundWaves();
 
     return 0;
 }
@@ -914,20 +1016,24 @@ int handleInput() {
     if(player.onGround || player.state == PLAYER_LIFTING) {
         // Check if player is in water for slower movement
         bool playerInWater = CheckCollisionRecs(player.boundingBox, waterArea);
-        float moveSpeed = playerInWater ? 2.25f : 4.5f; // Slower movement in water, reduced by 10%
+        bool isSneaking = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
+        
+        // Base speed, reduced in water, further reduced when sneaking
+        float baseSpeed = playerInWater ? 2.25f : 4.5f;
+        float moveSpeed = isSneaking ? baseSpeed * 0.4f : baseSpeed; // 40% speed when sneaking
         
         if(IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) {
             // A key or Left arrow is being held down
             player.speed.x = -moveSpeed;
             if(player.state != PLAYER_LIFTING) {
-                player.state = PLAYER_RUNNING;
+                player.state = isSneaking ? PLAYER_SNEAKING : PLAYER_RUNNING;
             }
         } else 
         if(IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) {
             // D key or Right arrow is being held down
             player.speed.x = moveSpeed;
             if(player.state != PLAYER_LIFTING) {
-                player.state = PLAYER_RUNNING;
+                player.state = isSneaking ? PLAYER_SNEAKING : PLAYER_RUNNING;
             }
         } else {
             player.speed.x = 0;
@@ -1012,5 +1118,143 @@ int resetPlayer() {
     // Reset jump cooldown
     jumpCooldown = 0.0f;
     
+    return 0;
+}
+
+/************************
+** Sound Wave Functions
+*************************/
+
+// Emit a new sound wave from the given origin with given intensity
+int emitSoundWave(Vector2 origin, float intensity) {
+    // Find an inactive wave slot
+    for(int i = 0; i < MAX_SOUND_WAVES; i++) {
+        if(!soundWaves[i].active) {
+            soundWaves[i].origin = origin;
+            soundWaves[i].radius = 5.0f; // Start with small radius
+            soundWaves[i].maxRadius = SOUND_WAVE_MAX_RADIUS * intensity; // Louder sounds travel further
+            soundWaves[i].intensity = intensity;
+            soundWaves[i].active = true;
+            return 0;
+        }
+    }
+    return -1; // No available slot
+}
+
+// Update all active sound waves
+int updateSoundWaves() {
+    // Expand and fade out active waves
+    for(int i = 0; i < MAX_SOUND_WAVES; i++) {
+        if(soundWaves[i].active) {
+            // Expand the wave
+            soundWaves[i].radius += SOUND_WAVE_EXPAND_SPEED;
+            
+            // Deactivate if reached max radius
+            if(soundWaves[i].radius >= soundWaves[i].maxRadius) {
+                soundWaves[i].active = false;
+            }
+        }
+    }
+    
+    // Emit sound waves based on player movement
+    if(player.state == PLAYER_RUNNING || player.state == PLAYER_SNEAKING || player.state == PLAYER_JUMPING || player.state == PLAYER_FALLING || player.state == PLAYER_LIFTING) {
+        soundWaveEmitTimer -= GetFrameTime();
+        
+        if(soundWaveEmitTimer <= 0) {
+            // Calculate movement intensity based on speed
+            float speedMagnitude = sqrtf(player.speed.x * player.speed.x + player.speed.y * player.speed.y);
+            float intensity = speedMagnitude / 10.0f; // Normalize to 0-1 range approximately
+            if(intensity > 1.0f) intensity = 1.0f;
+            if(intensity < 0.3f) intensity = 0.3f; // Minimum intensity for visibility
+            
+            // Sneaking significantly reduces sound
+            if(player.state == PLAYER_SNEAKING) {
+                intensity *= 0.2f; // 80% quieter when sneaking
+            }
+            
+            // Lifting makes more noise - increase intensity
+            if(player.state == PLAYER_LIFTING && intensity < 0.6f) {
+                intensity = 0.6f;
+            }
+            
+            // Emit from player center
+            Vector2 playerCenter = {
+                player.boundingBox.x + player.boundingBox.width / 2,
+                player.boundingBox.y + player.boundingBox.height / 2
+            };
+            emitSoundWave(playerCenter, intensity);
+            
+            // Reset timer - faster movement = more frequent waves
+            soundWaveEmitTimer = SOUND_WAVE_EMIT_INTERVAL;
+        }
+    } else if(player.state == PLAYER_HIDING) {
+        // Player is hiding - update breath timer
+        player.breathTimer += GetFrameTime();
+        
+        // After holding breath for max time, start emitting involuntary sounds
+        if(player.breathTimer > BREATH_HOLD_MAX) {
+            breathSoundTimer -= GetFrameTime();
+            
+            if(breathSoundTimer <= 0) {
+                // Emit small involuntary sound (gasping/heartbeat)
+                Vector2 playerCenter = {
+                    player.boundingBox.x + player.boundingBox.width / 2,
+                    player.boundingBox.y + player.boundingBox.height / 2
+                };
+                // Small intensity - quiet gasping sounds
+                float intensity = 0.25f;
+                emitSoundWave(playerCenter, intensity);
+                
+                breathSoundTimer = BREATH_SOUND_INTERVAL;
+            }
+        }
+        // Reset movement sound timer
+        soundWaveEmitTimer = 0;
+    } else {
+        // Reset timers when not moving and not hiding
+        soundWaveEmitTimer = 0;
+        player.breathTimer = 0;  // Reset breath when not hiding
+        breathSoundTimer = 0;
+    }
+    
+    return 0;
+}
+
+// Render all active sound waves
+// Note: This function draws in screen coordinates when called outside BeginMode2D
+int renderSoundWaves() {
+    for(int i = 0; i < MAX_SOUND_WAVES; i++) {
+        if(soundWaves[i].active) {
+            // Convert world coordinates to screen coordinates
+            Vector2 screenPos = GetWorldToScreen2D(soundWaves[i].origin, camera);
+            
+            // Calculate fade based on distance from origin (radius)
+            // At radius 0: full intensity (white)
+            // At max radius: fully faded (transparent)
+            float fadeProgress = soundWaves[i].radius / soundWaves[i].maxRadius;
+            
+            // Use a slower fade curve (squared) so waves stay brighter longer
+            float fadeFactor = (1.0f - fadeProgress) * (1.0f - fadeProgress * 0.5f);
+            
+            // Intensity affects the starting brightness
+            // Higher intensity = whiter/louder, fades to dark/quiet
+            unsigned char brightness = (unsigned char)(fadeFactor * 255);
+            unsigned char alpha = (unsigned char)(fadeFactor * 220 * soundWaves[i].intensity);
+            
+            Color waveColor = {brightness, brightness, brightness, alpha};
+            
+            // Draw the wave as a ring (circle outline)
+            // Use multiple circles with decreasing alpha for a softer look
+            DrawCircleLines((int)screenPos.x, (int)screenPos.y, 
+                           soundWaves[i].radius, waveColor);
+            
+            // Draw a slightly smaller ring for thickness effect
+            if(soundWaves[i].radius > 3) {
+                Color innerColor = {brightness, brightness, brightness, (unsigned char)(alpha * 0.5f)};
+                DrawCircleLines((int)screenPos.x, (int)screenPos.y, 
+                               soundWaves[i].radius - 2, innerColor);
+            }
+        }
+    }
     return 0;
 }
