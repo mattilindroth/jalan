@@ -58,6 +58,21 @@ typedef struct BackgroundItem {
     enum BackgroundItemType type;
 } BackgroundItem;
 
+// Rock structures
+typedef struct Rock {
+    Vector2 position;
+    bool collected;
+    bool visible;
+    Rectangle boundingBox;
+} Rock;
+
+typedef struct ThrownRock {
+    Vector2 position;
+    Vector2 velocity;
+    bool active;
+    bool hasLanded;
+} ThrownRock;
+
 //Structure to represent the player
 typedef struct Player {
     Vector2 position;
@@ -69,6 +84,7 @@ typedef struct Player {
     bool canLift;
     bool isLifting;
     float breathTimer;      // How long player has been holding breath while hiding
+    bool hasRock;           // Does player have a rock?
 } Player;
 
 //Structure to represent an enemy
@@ -79,7 +95,7 @@ typedef struct Enemy {
     enum EnemyType type;
     bool onGround;
     bool isEliminated;
-    // Sound investigation state
+// Sound investigation state
     bool isInvestigating;      // Is the enemy investigating a sound?
     float investigateTimer;    // Time remaining to investigate
     float patrolCenterX;       // X position to patrol around
@@ -183,6 +199,11 @@ SoundWave soundWaves[MAX_SOUND_WAVES];
 float soundWaveEmitTimer = 0.0f;
 float breathSoundTimer = 0.0f;  // Timer for involuntary breath sounds
 
+// Rock system
+#define MAX_ROCKS 3
+Rock rocks[MAX_ROCKS];
+ThrownRock thrownRock = {0};
+
 int main(int argc, char *argv[]) {
     
     // Initialize the window
@@ -193,7 +214,7 @@ int main(int argc, char *argv[]) {
     // Create a render texture for fog mask
     fogMask = LoadRenderTexture(SCREEN_WIDTH, SCREEN_HEIGHT);
     //Initialize player. he/she is on ground at start and not hiding.
-    player = (Player){{2, SCREEN_HEIGHT * 2}, {0, 0}, {2, SCREEN_HEIGHT * 2, 50, 50}, PLAYER_IDLE, true, false, false, false};
+    player = (Player){{2, SCREEN_HEIGHT * 2}, {0, 0}, {2, SCREEN_HEIGHT * 2, 50, 50}, PLAYER_IDLE, true, false, false, false, 0.0f, false};
 
     ghost = (Enemy){{GAME_AREA_WIDTH - 100, GAME_AREA_HEIGHT - 100}, {-6.3f, 0}, {GAME_AREA_WIDTH - 100, GAME_AREA_HEIGHT - 100, 40, 60}, ENEMY_TYPE_GHOST, false, false, false, 0, 0, 1.0f, -6.3f};
 
@@ -265,13 +286,26 @@ int main(int argc, char *argv[]) {
             GetRandomValue(3, 6)    // Falling speed (3 to 6 pixels per frame)
         };
     }
-
+    
     // Initialize sound wave system
     for(int i = 0; i < MAX_SOUND_WAVES; i++) {
         soundWaves[i].active = false;
         soundWaves[i].radius = 0;
         soundWaves[i].maxRadius = SOUND_WAVE_MAX_RADIUS;
     }
+    
+    // Initialize rock system
+    // Rock 1: at the beginning
+    rocks[0] = (Rock){{100, GAME_AREA_HEIGHT - 25}, false, true, {100, GAME_AREA_HEIGHT - 25, 15, 15}};
+    
+    // Rock 2: after the water area  
+    rocks[1] = (Rock){{waterArea.x + waterArea.width + 100, GAME_AREA_HEIGHT - 25}, false, true, {waterArea.x + waterArea.width + 100, GAME_AREA_HEIGHT - 25, 15, 15}};
+    
+    // Rock 3: at the very end
+    rocks[2] = (Rock){{GAME_AREA_WIDTH - 150, GAME_AREA_HEIGHT - 25}, false, true, {GAME_AREA_WIDTH - 150, GAME_AREA_HEIGHT - 25, 15, 15}};
+    
+    // Initialize thrown rock as inactive
+    thrownRock = (ThrownRock){{0, 0}, {0, 0}, false, false};
     // Main game loop
     while (!WindowShouldClose()) {       
 
@@ -330,7 +364,7 @@ int renderFrame() {
     if(player.state == PLAYER_HIDING) {
         //Draw the player as a red square. Draw player before trees and graves to appear behind
         DrawRectangle(player.boundingBox.x, player.boundingBox.y, player.boundingBox.width, player.boundingBox.height, RED);
-        
+
         renderTreesAndGraves();
     } else {
         
@@ -338,7 +372,7 @@ int renderFrame() {
 
         //Draw the player as a red square. Draw player after trees and graves to appear in front
         DrawRectangle(player.boundingBox.x, player.boundingBox.y, player.boundingBox.width, player.boundingBox.height, RED);
-        
+
     }
 
     //Draw water area
@@ -351,6 +385,19 @@ int renderFrame() {
     for(int i = 0; i < 5; i++) {
         DrawRectangleRec(blocks[i].boundingBox, BROWN);
         DrawText("BOX", blocks[i].boundingBox.x + 10, blocks[i].boundingBox.y + 20, 10, BLACK);
+    }
+    
+    // Draw rocks
+    for(int i = 0; i < MAX_ROCKS; i++) {
+        if(rocks[i].visible && !rocks[i].collected) {
+            DrawCircle((int)(rocks[i].position.x + 7), (int)(rocks[i].position.y + 7), 7, GRAY);
+            DrawCircle((int)(rocks[i].position.x + 7), (int)(rocks[i].position.y + 7), 5, DARKGRAY);
+        }
+    }
+    
+    // Draw thrown rock if active
+    if(thrownRock.active) {
+        DrawCircle((int)(thrownRock.position.x), (int)(thrownRock.position.y), 4, GRAY);
     }
 
     // Draw exit gateway
@@ -425,6 +472,22 @@ int renderFrame() {
         
         // Flash effect - brighten the entire screen slightly
         DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, (Color){255, 255, 255, 30});
+    }
+    
+    // Draw UI elements (rock status and controls)
+    if (!playerDead && !gameWon) {
+        // Rock status
+        if (player.hasRock) {
+            DrawText("ROCK: READY", 10, 10, 20, YELLOW);
+            if (player.state == PLAYER_HIDING) {
+                DrawText("Press R to throw rock", 10, 35, 16, WHITE);
+            }
+        } else {
+            DrawText("ROCK: NONE", 10, 10, 20, GRAY);
+        }
+        
+        // Basic controls
+        DrawText("WASD/Arrows: Move | Space: Hide | Ctrl: Lift", 10, SCREEN_HEIGHT - 25, 14, WHITE);
     }
     
     // Draw death screen if player is dead
@@ -591,12 +654,6 @@ int updateGame() {
         ghost.speed.x *= -1; // Reverse direction on wall collision
         ghost.patrolDirection *= -1; // Also reverse patrol direction
     }
-
-    //Move zombie
-    if(zombie.isEliminated) {
-        zombie.boundingBox.x = zombie.position.x; // Return the zombie to original start place
-        zombie.boundingBox.y = zombie.position.y;
-    }
     
     // Check if zombie hears any sound waves
     for(int i = 0; i < MAX_SOUND_WAVES; i++) {
@@ -644,7 +701,7 @@ int updateGame() {
             zombie.speed.x = fabsf(zombie.originalSpeedX) * zombie.patrolDirection;
         }
     }
-    
+
     zombie.boundingBox.x += zombie.speed.x;
     
     //zombie.boundingBox.y += zombie.speed.y;
@@ -704,6 +761,45 @@ int updateGame() {
     // Update player position based on speed
     player.boundingBox.x += player.speed.x;
     player.boundingBox.y += player.speed.y;
+    
+    // Rock collection logic
+    if (!player.hasRock) {
+        for (int i = 0; i < MAX_ROCKS; i++) {
+            if (rocks[i].visible && !rocks[i].collected) {
+                if (CheckCollisionRecs(player.boundingBox, rocks[i].boundingBox)) {
+                    rocks[i].collected = true;
+                    rocks[i].visible = false;
+                    player.hasRock = true;
+                    break; // Only collect one rock at a time
+                }
+            }
+        }
+    }
+    
+    // Update thrown rock physics
+    if (thrownRock.active) {
+        // Apply gravity to thrown rock
+        thrownRock.velocity.y += GRAVITY;
+        
+        // Update position
+        thrownRock.position.x += thrownRock.velocity.x;
+        thrownRock.position.y += thrownRock.velocity.y;
+        
+        // Check if rock hits ground
+        if (thrownRock.position.y >= GAME_AREA_HEIGHT - 5) {
+            if (!thrownRock.hasLanded) {
+                // Rock just landed - emit sound wave
+                emitSoundWave(thrownRock.position, 15.0f); // Strong sound intensity
+                thrownRock.hasLanded = true;
+            }
+            thrownRock.active = false; // Rock is no longer active
+        }
+        
+        // Check if rock goes out of bounds horizontally
+        if (thrownRock.position.x < 0 || thrownRock.position.x > GAME_AREA_WIDTH) {
+            thrownRock.active = false;
+        }
+    }
 
     if(player.state == PLAYER_LIFTING && liftableBlock != NULL) {
         // Move the block with the player
@@ -720,16 +816,6 @@ int updateGame() {
         enum CollisionState collisionWithZombie = checkPlayerCollisionWithEnemy(&player, &zombie);
         switch (collisionWithZombie) {
             case COLLISION_CEILING:
-                // Player jumped on zombie - eliminate zombie
-                // For simplicity, just move zombie off-screen
-                zombie.boundingBox.x = zombie.position.x;
-                zombie.boundingBox.y = zombie.position.y;
-                //zombie.isEliminated = true;
-
-                //Make the player bounce up a bit
-                player.speed.y = -8;
-                player.onGround = false;
-                break;
             case COLLISION_WALL:
                 // Trigger death sequence instead of immediate reset
                 playerDead = true;
@@ -737,8 +823,8 @@ int updateGame() {
                 break;
             default:
                 break;
-        }
-    }
+            }
+        }    
 
     // Check collision with blocks (player can stand on them)
     bool playerOnBlock = false;
@@ -943,7 +1029,7 @@ int updateGame() {
         deathFadeTimer += GetFrameTime();
     }
 
-    // Update sound wave system
+     // Update sound wave system
     updateSoundWaves();
 
     return 0;
@@ -974,11 +1060,22 @@ int handleInput() {
         return 0;
     }
     
-    // If player is hiding, don't allow movement - only allow unhiding with SPACE
+    // If player is hiding, don't allow movement - only allow unhiding with SPACE and throwing with R
     if(player.state == PLAYER_HIDING) {
         if (IsKeyPressed(KEY_SPACE)) {
             player.state = PLAYER_IDLE;
         }
+        
+        // Rock throwing when hiding
+        if (IsKeyPressed(KEY_R) && player.hasRock && !thrownRock.active) {
+            // Throw rock 200px to the right from player position
+            thrownRock.position = (Vector2){player.boundingBox.x + player.boundingBox.width, player.boundingBox.y + player.boundingBox.height / 2};
+            thrownRock.velocity = (Vector2){8.0f, -2.0f}; // Horizontal: 8px/frame ≈ 200px total, slight upward arc
+            thrownRock.active = true;
+            thrownRock.hasLanded = false;
+            player.hasRock = false; // Player no longer has rock
+        }
+        
         return 0; // Exit early to prevent movement while hiding
     }
     
@@ -1108,6 +1205,7 @@ int resetPlayer() {
     player.isLifting = false;
     player.canHide = false;
     player.canLift = false;
+    player.hasRock = false; // Reset rock status
     
     // Clear any lifted block
     if(liftableBlock != NULL && player.isLifting) {
@@ -1117,6 +1215,16 @@ int resetPlayer() {
     
     // Reset jump cooldown
     jumpCooldown = 0.0f;
+    
+    // Reset thrown rock
+    thrownRock.active = false;
+    thrownRock.hasLanded = false;
+    
+    // Reset all rocks to their original state
+    for (int i = 0; i < MAX_ROCKS; i++) {
+        rocks[i].collected = false;
+        rocks[i].visible = true;
+    }
     
     return 0;
 }
