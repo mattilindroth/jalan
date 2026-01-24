@@ -19,6 +19,7 @@ enum PlayerState {
     PLAYER_FALLING,
     PLAYER_HIDING,
     PLAYER_LIFTING,
+    PLAYER_PUSHING,
 };
 
 enum CollisionState {
@@ -83,6 +84,8 @@ typedef struct Player {
     bool canHide;
     bool canLift;
     bool isLifting;
+    bool isPushing;
+    Block *pushedBlock;     // Which block is being pushed
     float breathTimer;      // How long player has been holding breath while hiding
     bool hasRock;           // Does player have a rock?
 } Player;
@@ -426,7 +429,7 @@ int renderFrame() {
         ClearBackground(BLACK); // Complete darkness background
         
         // Draw a gradient circle - from "just before dark" to complete darkness
-        DrawCircleGradient((int)playerScreenPos.x, (int)playerScreenPos.y, 450, 
+        DrawCircleGradient((int)playerScreenPos.x, (int)playerScreenPos.y, 500, 
                           (Color){80, 80, 80, 255},  // Dark gray at center - "just before dark"
                           BLACK);                    // Complete darkness at edges
     EndTextureMode();
@@ -1119,18 +1122,118 @@ int handleInput() {
         float baseSpeed = playerInWater ? 2.25f : 4.5f;
         float moveSpeed = isSneaking ? baseSpeed * 0.4f : baseSpeed; // 40% speed when sneaking
         
+        // Reset pushing state
+        player.isPushing = false;
+        player.pushedBlock = NULL;
+        
         if(IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) {
-            // A key or Left arrow is being held down
-            player.speed.x = -moveSpeed;
-            if(player.state != PLAYER_LIFTING) {
-                player.state = isSneaking ? PLAYER_SNEAKING : PLAYER_RUNNING;
+            // Check for block collision before moving left
+            Rectangle nextPlayerPos = player.boundingBox;
+            nextPlayerPos.x -= moveSpeed;
+            
+            bool canMove = true;
+            for(int i = 0; i < 5; i++) {
+                if(CheckCollisionRecs(nextPlayerPos, blocks[i].boundingBox)) {
+                    // Check if we can push the block (not lifting this block and block can move)
+                    if(&blocks[i] != liftableBlock || !player.isLifting) {
+                        Rectangle nextBlockPos = blocks[i].boundingBox;
+                        nextBlockPos.x -= moveSpeed * 0.3f; // Blocks move slower when pushed
+                        
+                        // Check if block can move (not hitting game boundaries or other blocks)
+                        bool blockCanMove = (nextBlockPos.x >= gameArea.x);
+                        
+                        // Check collision with other blocks
+                        for(int j = 0; j < 5; j++) {
+                            if(i != j && CheckCollisionRecs(nextBlockPos, blocks[j].boundingBox)) {
+                                blockCanMove = false;
+                                break;
+                            }
+                        }
+                        
+                        if(blockCanMove) {
+                            // Push the block
+                            blocks[i].boundingBox.x = nextBlockPos.x;
+                            player.speed.x = -moveSpeed * 0.3f; // Slow pushing speed
+                            player.isPushing = true;
+                            player.pushedBlock = &blocks[i];
+                            if(player.state != PLAYER_LIFTING) {
+                                player.state = PLAYER_PUSHING;
+                            }
+                        } else {
+                            // Block can't move, player can't move
+                            player.speed.x = 0;
+                            canMove = false;
+                        }
+                    } else {
+                        // Can't push lifted block, stop movement
+                        player.speed.x = 0;
+                        canMove = false;
+                    }
+                    break;
+                }
+            }
+            
+            if(canMove && !player.isPushing) {
+                // Normal left movement
+                player.speed.x = -moveSpeed;
+                if(player.state != PLAYER_LIFTING) {
+                    player.state = isSneaking ? PLAYER_SNEAKING : PLAYER_RUNNING;
+                }
             }
         } else 
         if(IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) {
-            // D key or Right arrow is being held down
-            player.speed.x = moveSpeed;
-            if(player.state != PLAYER_LIFTING) {
-                player.state = isSneaking ? PLAYER_SNEAKING : PLAYER_RUNNING;
+            // Check for block collision before moving right
+            Rectangle nextPlayerPos = player.boundingBox;
+            nextPlayerPos.x += moveSpeed;
+            
+            bool canMove = true;
+            for(int i = 0; i < 5; i++) {
+                if(CheckCollisionRecs(nextPlayerPos, blocks[i].boundingBox)) {
+                    // Check if we can push the block (not lifting this block and block can move)
+                    if(&blocks[i] != liftableBlock || !player.isLifting) {
+                        Rectangle nextBlockPos = blocks[i].boundingBox;
+                        nextBlockPos.x += moveSpeed * 0.3f; // Blocks move slower when pushed
+                        
+                        // Check if block can move (not hitting game boundaries or other blocks)
+                        bool blockCanMove = (nextBlockPos.x + nextBlockPos.width <= gameArea.x + gameArea.width);
+                        
+                        // Check collision with other blocks
+                        for(int j = 0; j < 5; j++) {
+                            if(i != j && CheckCollisionRecs(nextBlockPos, blocks[j].boundingBox)) {
+                                blockCanMove = false;
+                                break;
+                            }
+                        }
+                        
+                        if(blockCanMove) {
+                            // Push the block
+                            blocks[i].boundingBox.x = nextBlockPos.x;
+                            player.speed.x = moveSpeed * 0.3f; // Slow pushing speed
+                            player.isPushing = true;
+                            player.pushedBlock = &blocks[i];
+                            if(player.state != PLAYER_LIFTING) {
+                                player.state = PLAYER_PUSHING;
+                            }
+                        } else {
+                            // Block can't move, player can't move
+                            player.speed.x = 0;
+                            canMove = false;
+                        }
+                    } else {
+                        // Can't push lifted block, stop movement
+                        player.speed.x = 0;
+                        canMove = false;
+                    }
+                    break;
+                }
+            }
+            
+            if(canMove && !player.isPushing) {
+                // Normal right movement
+                player.speed.x = moveSpeed;
+                if(player.state != PLAYER_LIFTING) {
+                    player.state = isSneaking ? PLAYER_SNEAKING : PLAYER_RUNNING;
+                }
             }
         } else {
             player.speed.x = 0;
