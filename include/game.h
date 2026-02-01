@@ -1,10 +1,14 @@
+#ifndef GAME_H
+#define GAME_H
+
 #include "scene.h"
 #include <stdlib.h>
 #include "raylib.h"
 #include "dynamic_array.h"
-
-#ifndef GAME_H
-#define GAME_H
+#include "obstacle.h"
+#include "player.h"
+#include "enemy.h"
+#include "background_object.h"
 
 enum GameState {
     STATE_MENU,
@@ -16,11 +20,23 @@ enum GameState {
 typedef struct Game {
     Scene* currentScene;
     enum GameState state;
-    dynamic_array* rainDrops;
+    DynamicArray* obstacles;
+    DynamicArray* backgroundObjects;
+
+    //Perhaps make a render- specific module with camera there later on ?
+    Camera2D camera;
+
+    //These could be some kind of entities later on.    
+    Player *player;
+    Enemy *enemy;
     // Add other game-related properties here
 } Game;
 
 Game* createGame(Scene* initialScene, enum GameState initialState);
+
+void addObstacleToGame(Game* game, Obstacle* obstacle);
+
+void addBackgroundObjectToGame(Game* game, BackgroundObject* backgroundObject);
 
 int updateGame(Game* game);
 

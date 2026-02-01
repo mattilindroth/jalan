@@ -14,7 +14,13 @@ link_directories(lib)
 add_executable(${PROJECT_NAME} src/main.c 
                            src/game.c 
                            src/scene.c 
-                           src/dynamic_array.c)
+                           src/dynamic_array.c
+                           src/obstacle.c
+                           src/player.c
+                           src/enemy.c
+                           src/background_object.c
+                           src/level_loader.c
+                           src/cJSON.c)
 
 # Link raylib
 target_link_libraries(${PROJECT_NAME} raylib)

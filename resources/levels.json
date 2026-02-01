@@ -1,0 +1,113 @@
+{
+    "Levels": [
+        {
+            "player": {"id": 1, "x":100,"y":850},
+            "enemies": [
+                {
+                    "id": 1, 
+                    "sceneId": 1, 
+                    "position": {"x": 200, "y": 850},
+                    "patrolPointA": {"x": 200, "y": 850},
+                    "patrolPointB": {"x": 600, "y": 850},
+                    "speed": 2,
+                    "hasLight": false
+                }
+            ],
+            "obstacles": [
+                {
+                    "id": 1,
+                    "sceneId": 1,
+                    "name": "bedPost",
+                    "rectangle": {"x": 50.0, "y": 900.0, "width": 10.0, "height": 100.0},
+                    "color": {"r": 76, "g": 63, "b": 47, "a": 255}
+                },
+                {
+                    "id": 2,
+                    "sceneId": 1,
+                    "name": "bed",
+                    "rectangle": {"x": 60.0, "y": 950.0, "width": 300.0, "height": 40.0},
+                    "color": {"r": 0, "g": 228, "b": 48, "a": 255}
+                },
+                {
+                    "id": 3,
+                    "sceneId": 1,
+                    "name": "bedPost2",
+                    "rectangle": {"x": 360.0, "y": 900.0, "width": 10.0, "height": 100.0},
+                    "color": {"r": 76, "g": 63, "b": 47, "a": 255}
+                },
+                {
+                    "id": 4,
+                    "sceneId": 1,
+                    "name": "floorObstacle",
+                    "rectangle": {"x": 0.0, "y": 1000.0, "width": 1920.0, "height": 100.0},
+                    "color": {"r": 130, "g": 130, "b": 130, "a": 255}
+                }
+            ],
+            "backgroundObjects": [
+                {
+                    "id": 1,
+                    "sceneId": 1,
+                    "name": "roomBackground",
+                    "rectangle": {"x": 0.0, "y": 0.0, "width": 1920.0, "height": 1080.0},
+                    "color": {"r": 200, "g": 200, "b": 200, "a": 255}
+                },
+                {
+                    "id": 2,
+                    "sceneId": 1,
+                    "name": "windowBackground",
+                    "rectangle": {"x": 600.0, "y": 550.0, "width": 200.0, "height": 150.0},
+                    "color": {"r": 0, "g": 82, "b": 172, "a": 255}
+                },
+                {
+                    "id": 3,
+                    "sceneId": 1,
+                    "name": "windowBackground2",
+                    "rectangle": {"x": 1000.0, "y": 550.0, "width": 200.0, "height": 150.0},
+                    "color": {"r": 0, "g": 82, "b": 172, "a": 255}
+                },
+                {
+                    "id": 4,
+                    "sceneId": 1,
+                    "name": "windowBar1",
+                    "rectangle": {"x": 610.0, "y": 550.0, "width": 10.0, "height": 150.0},
+                    "color": {"r": 80, "g": 80, "b": 80, "a": 255}
+                },
+                {
+                    "id": 5,
+                    "sceneId": 1,
+                    "name": "windowBar2",
+                    "rectangle": {"x": 700.0, "y": 550.0, "width": 10.0, "height": 150.0},
+                    "color": {"r": 80, "g": 80, "b": 80, "a": 255}
+                },
+                {
+                    "id": 6,
+                    "sceneId": 1,
+                    "name": "windowBar3",
+                    "rectangle": {"x": 790.0, "y": 550.0, "width": 10.0, "height": 150.0},
+                    "color": {"r": 80, "g": 80, "b": 80, "a": 255}
+                },
+                {
+                    "id": 7,
+                    "sceneId": 1,
+                    "name": "windowBar4",
+                    "rectangle": {"x": 1010.0, "y": 550.0, "width": 10.0, "height": 150.0},
+                    "color": {"r": 80, "g": 80, "b": 80, "a": 255}
+                },
+                {
+                    "id": 8,
+                    "sceneId": 1,
+                    "name": "windowBar5",
+                    "rectangle": {"x": 1100.0, "y": 550.0, "width": 10.0, "height": 150.0},
+                    "color": {"r": 80, "g": 80, "b": 80, "a": 255}
+                },
+                {
+                    "id": 9,
+                    "sceneId": 1,
+                    "name": "windowBar6",
+                    "rectangle": {"x": 1190.0, "y": 550.0, "width": 10.0, "height": 150.0},
+                    "color": {"r": 80, "g": 80, "b": 80, "a": 255}
+                }
+            ]
+        }            
+    ]
+}
