@@ -1,0 +1,26 @@
+#ifndef LIGHT_HH
+#define LIGHT_HH
+
+#include "raylib.h"
+#include <stdlib.h>
+
+typedef struct Light {
+    Vector2 position;
+    float radius;
+    float lightingRadius;
+    Color color;
+    bool isOn;
+    bool flicker;
+    float flickerTimer;
+    bool breakable;
+} Light;
+
+Light* createLight(Vector2 position, float radius, float lightingRadius, Color color, bool flicker, bool breakable, bool isOn);
+
+void renderLight(Light* light);
+
+void updateLight(Light* light);
+
+void destroyLight(Light* light);
+
+#endif // LIGHT_HH

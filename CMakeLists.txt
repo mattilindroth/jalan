@@ -19,8 +19,10 @@ add_executable(${PROJECT_NAME} src/main.c
                            src/player.c
                            src/enemy.c
                            src/background_object.c
+                           src/light.c
                            src/level_loader.c
-                           src/cJSON.c)
+                           src/cJSON.c
+                           src/grid.c)
 
 # Link raylib
 target_link_libraries(${PROJECT_NAME} raylib)
