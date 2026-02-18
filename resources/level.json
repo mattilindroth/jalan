@@ -1,0 +1,990 @@
+{
+	"Levels":	[{
+			"player":	{
+				"id":	1,
+				"position":	{
+					"x":	573,
+					"y":	911
+				}
+			},
+			"enemies":	[{
+					"id":	1,
+					"sceneId":	1,
+					"position":	{
+						"x":	4192,
+						"y":	896
+					},
+					"patrolPointA":	{
+						"x":	4128,
+						"y":	896
+					},
+					"patrolPointB":	{
+						"x":	4224,
+						"y":	896
+					},
+					"lastKnownPlayerPosition":	{
+						"x":	200,
+						"y":	850
+					},
+					"searchOrigin":	{
+						"x":	200,
+						"y":	850
+					},
+					"lookAtDirection":	{
+						"x":	-1,
+						"y":	0
+					},
+					"speed":	2,
+					"doesPatrol":	false
+				}],
+			"obstacles":	[{
+					"id":	1,
+					"sceneId":	1,
+					"name":	"editorObstacle",
+					"rectangle":	{
+						"x":	48,
+						"y":	896,
+						"width":	16,
+						"height":	96
+					},
+					"color":	{
+						"r":	76,
+						"g":	63,
+						"b":	47,
+						"a":	255
+					}
+				}, {
+					"id":	2,
+					"sceneId":	1,
+					"name":	"editorObstacle",
+					"rectangle":	{
+						"x":	64,
+						"y":	928,
+						"width":	300,
+						"height":	40
+					},
+					"color":	{
+						"r":	0,
+						"g":	228,
+						"b":	48,
+						"a":	255
+					}
+				}, {
+					"id":	3,
+					"sceneId":	1,
+					"name":	"editorObstacle",
+					"rectangle":	{
+						"x":	352,
+						"y":	896,
+						"width":	16,
+						"height":	96
+					},
+					"color":	{
+						"r":	76,
+						"g":	63,
+						"b":	47,
+						"a":	255
+					}
+				}, {
+					"id":	4,
+					"sceneId":	1,
+					"name":	"editorObstacle",
+					"rectangle":	{
+						"x":	0,
+						"y":	992,
+						"width":	3616,
+						"height":	96
+					},
+					"color":	{
+						"r":	130,
+						"g":	130,
+						"b":	130,
+						"a":	255
+					}
+				}, {
+					"id":	5,
+					"sceneId":	1,
+					"name":	"editorObstacle",
+					"rectangle":	{
+						"x":	800,
+						"y":	896,
+						"width":	96,
+						"height":	96
+					},
+					"color":	{
+						"r":	253,
+						"g":	249,
+						"b":	0,
+						"a":	255
+					}
+				}, {
+					"id":	6,
+					"sceneId":	1,
+					"name":	"editorObstacle",
+					"rectangle":	{
+						"x":	3872,
+						"y":	992,
+						"width":	384,
+						"height":	96
+					},
+					"color":	{
+						"r":	130,
+						"g":	130,
+						"b":	130,
+						"a":	255
+					}
+				}, {
+					"id":	7,
+					"sceneId":	1,
+					"name":	"editorObstacle",
+					"rectangle":	{
+						"x":	1920,
+						"y":	0,
+						"width":	64,
+						"height":	832
+					},
+					"color":	{
+						"r":	130,
+						"g":	130,
+						"b":	130,
+						"a":	255
+					}
+				}, {
+					"id":	8,
+					"sceneId":	1,
+					"name":	"editorObstacle",
+					"rectangle":	{
+						"x":	4192,
+						"y":	0,
+						"width":	64,
+						"height":	832
+					},
+					"color":	{
+						"r":	130,
+						"g":	130,
+						"b":	130,
+						"a":	255
+					}
+				}, {
+					"id":	9,
+					"sceneId":	1,
+					"name":	"editorObstacle",
+					"rectangle":	{
+						"x":	3808,
+						"y":	1056,
+						"width":	64,
+						"height":	64
+					},
+					"color":	{
+						"r":	130,
+						"g":	130,
+						"b":	130,
+						"a":	255
+					}
+				}, {
+					"id":	10,
+					"sceneId":	1,
+					"name":	"editorObstacle",
+					"rectangle":	{
+						"x":	3744,
+						"y":	1120,
+						"width":	128,
+						"height":	64
+					},
+					"color":	{
+						"r":	130,
+						"g":	130,
+						"b":	130,
+						"a":	255
+					}
+				}, {
+					"id":	11,
+					"sceneId":	1,
+					"name":	"editorObstacle",
+					"rectangle":	{
+						"x":	3680,
+						"y":	1184,
+						"width":	192,
+						"height":	64
+					},
+					"color":	{
+						"r":	130,
+						"g":	130,
+						"b":	130,
+						"a":	255
+					}
+				}, {
+					"id":	12,
+					"sceneId":	1,
+					"name":	"editorObstacle",
+					"rectangle":	{
+						"x":	3616,
+						"y":	1248,
+						"width":	256,
+						"height":	64
+					},
+					"color":	{
+						"r":	130,
+						"g":	130,
+						"b":	130,
+						"a":	255
+					}
+				}, {
+					"id":	13,
+					"sceneId":	1,
+					"name":	"editorObstacle",
+					"rectangle":	{
+						"x":	3616,
+						"y":	992,
+						"width":	64,
+						"height":	32
+					},
+					"color":	{
+						"r":	130,
+						"g":	130,
+						"b":	130,
+						"a":	255
+					}
+				}, {
+					"id":	14,
+					"sceneId":	1,
+					"name":	"editorObstacle",
+					"rectangle":	{
+						"x":	3616,
+						"y":	1024,
+						"width":	32,
+						"height":	32
+					},
+					"color":	{
+						"r":	130,
+						"g":	130,
+						"b":	130,
+						"a":	255
+					}
+				}, {
+					"id":	15,
+					"sceneId":	1,
+					"name":	"editorObstacle",
+					"rectangle":	{
+						"x":	3552,
+						"y":	1312,
+						"width":	320,
+						"height":	64
+					},
+					"color":	{
+						"r":	130,
+						"g":	130,
+						"b":	130,
+						"a":	255
+					}
+				}, {
+					"id":	16,
+					"sceneId":	1,
+					"name":	"editorObstacle",
+					"rectangle":	{
+						"x":	3488,
+						"y":	1376,
+						"width":	384,
+						"height":	64
+					},
+					"color":	{
+						"r":	130,
+						"g":	130,
+						"b":	130,
+						"a":	255
+					}
+				}, {
+					"id":	17,
+					"sceneId":	1,
+					"name":	"editorObstacle",
+					"rectangle":	{
+						"x":	3424,
+						"y":	1440,
+						"width":	448,
+						"height":	64
+					},
+					"color":	{
+						"r":	130,
+						"g":	130,
+						"b":	130,
+						"a":	255
+					}
+				}, {
+					"id":	18,
+					"sceneId":	1,
+					"name":	"editorObstacle",
+					"rectangle":	{
+						"x":	3136,
+						"y":	1088,
+						"width":	64,
+						"height":	576
+					},
+					"color":	{
+						"r":	130,
+						"g":	130,
+						"b":	130,
+						"a":	255
+					}
+				}, {
+					"id":	19,
+					"sceneId":	1,
+					"name":	"editorObstacle",
+					"rectangle":	{
+						"x":	3200,
+						"y":	1536,
+						"width":	96,
+						"height":	64
+					},
+					"color":	{
+						"r":	130,
+						"g":	130,
+						"b":	130,
+						"a":	255
+					}
+				}, {
+					"id":	20,
+					"sceneId":	1,
+					"name":	"editorObstacle",
+					"rectangle":	{
+						"x":	3200,
+						"y":	1600,
+						"width":	160,
+						"height":	64
+					},
+					"color":	{
+						"r":	130,
+						"g":	130,
+						"b":	130,
+						"a":	255
+					}
+				}, {
+					"id":	21,
+					"sceneId":	1,
+					"name":	"editorObstacle",
+					"rectangle":	{
+						"x":	3136,
+						"y":	1664,
+						"width":	288,
+						"height":	64
+					},
+					"color":	{
+						"r":	130,
+						"g":	130,
+						"b":	130,
+						"a":	255
+					}
+				}, {
+					"id":	22,
+					"sceneId":	1,
+					"name":	"editorObstacle",
+					"rectangle":	{
+						"x":	3136,
+						"y":	1728,
+						"width":	352,
+						"height":	64
+					},
+					"color":	{
+						"r":	130,
+						"g":	130,
+						"b":	130,
+						"a":	255
+					}
+				}, {
+					"id":	24,
+					"sceneId":	1,
+					"name":	"editorObstacle",
+					"rectangle":	{
+						"x":	3136,
+						"y":	1792,
+						"width":	416,
+						"height":	64
+					},
+					"color":	{
+						"r":	130,
+						"g":	130,
+						"b":	130,
+						"a":	255
+					}
+				}, {
+					"id":	25,
+					"sceneId":	1,
+					"name":	"editorObstacle",
+					"rectangle":	{
+						"x":	3808,
+						"y":	1504,
+						"width":	64,
+						"height":	448
+					},
+					"color":	{
+						"r":	130,
+						"g":	130,
+						"b":	130,
+						"a":	255
+					}
+				}, {
+					"id":	26,
+					"sceneId":	1,
+					"name":	"editorObstacle",
+					"rectangle":	{
+						"x":	352,
+						"y":	1952,
+						"width":	3520,
+						"height":	64
+					},
+					"color":	{
+						"r":	130,
+						"g":	130,
+						"b":	130,
+						"a":	255
+					}
+				}, {
+					"id":	27,
+					"sceneId":	1,
+					"name":	"editorObstacle",
+					"rectangle":	{
+						"x":	0,
+						"y":	1952,
+						"width":	128,
+						"height":	64
+					},
+					"color":	{
+						"r":	130,
+						"g":	130,
+						"b":	130,
+						"a":	255
+					}
+				}, {
+					"id":	28,
+					"sceneId":	1,
+					"name":	"editorObstacle",
+					"rectangle":	{
+						"x":	0,
+						"y":	1088,
+						"width":	64,
+						"height":	864
+					},
+					"color":	{
+						"r":	130,
+						"g":	130,
+						"b":	130,
+						"a":	255
+					}
+				}, {
+					"id":	29,
+					"sceneId":	1,
+					"name":	"editorObstacle",
+					"rectangle":	{
+						"x":	1920,
+						"y":	1088,
+						"width":	64,
+						"height":	704
+					},
+					"color":	{
+						"r":	130,
+						"g":	130,
+						"b":	130,
+						"a":	255
+					}
+				}, {
+					"id":	30,
+					"sceneId":	1,
+					"name":	"editorObstacle",
+					"rectangle":	{
+						"x":	0,
+						"y":	2016,
+						"width":	64,
+						"height":	1344
+					},
+					"color":	{
+						"r":	130,
+						"g":	130,
+						"b":	130,
+						"a":	255
+					}
+				}, {
+					"id":	31,
+					"sceneId":	1,
+					"name":	"editorObstacle",
+					"rectangle":	{
+						"x":	64,
+						"y":	3296,
+						"width":	4224,
+						"height":	64
+					},
+					"color":	{
+						"r":	130,
+						"g":	130,
+						"b":	130,
+						"a":	255
+					}
+				}, {
+					"id":	32,
+					"sceneId":	1,
+					"name":	"editorObstacle",
+					"rectangle":	{
+						"x":	3808,
+						"y":	2016,
+						"width":	64,
+						"height":	1120
+					},
+					"color":	{
+						"r":	130,
+						"g":	130,
+						"b":	130,
+						"a":	255
+					}
+				}, {
+					"id":	33,
+					"sceneId":	1,
+					"name":	"editorObstacle",
+					"rectangle":	{
+						"x":	2368,
+						"y":	2016,
+						"width":	64,
+						"height":	352
+					},
+					"color":	{
+						"r":	130,
+						"g":	130,
+						"b":	130,
+						"a":	255
+					}
+				}, {
+					"id":	34,
+					"sceneId":	1,
+					"name":	"editorObstacle",
+					"rectangle":	{
+						"x":	2368,
+						"y":	2464,
+						"width":	64,
+						"height":	672
+					},
+					"color":	{
+						"r":	130,
+						"g":	130,
+						"b":	130,
+						"a":	255
+					}
+				}, {
+					"id":	35,
+					"sceneId":	1,
+					"name":	"editorObstacle",
+					"rectangle":	{
+						"x":	0,
+						"y":	0,
+						"width":	32,
+						"height":	992
+					},
+					"color":	{
+						"r":	130,
+						"g":	130,
+						"b":	130,
+						"a":	255
+					}
+				}],
+			"backgroundObjects":	[{
+					"id":	1,
+					"sceneId":	1,
+					"name":	"editorBackground",
+					"bounds":	{
+						"x":	0,
+						"y":	0,
+						"width":	4256,
+						"height":	1088
+					},
+					"color":	{
+						"r":	200,
+						"g":	200,
+						"b":	200,
+						"a":	255
+					}
+				}, {
+					"id":	2,
+					"sceneId":	1,
+					"name":	"editorBackground",
+					"bounds":	{
+						"x":	600,
+						"y":	550,
+						"width":	200,
+						"height":	150
+					},
+					"color":	{
+						"r":	0,
+						"g":	82,
+						"b":	172,
+						"a":	255
+					}
+				}, {
+					"id":	3,
+					"sceneId":	1,
+					"name":	"editorBackground",
+					"bounds":	{
+						"x":	1000,
+						"y":	550,
+						"width":	200,
+						"height":	150
+					},
+					"color":	{
+						"r":	0,
+						"g":	82,
+						"b":	172,
+						"a":	255
+					}
+				}, {
+					"id":	4,
+					"sceneId":	1,
+					"name":	"editorBackground",
+					"bounds":	{
+						"x":	610,
+						"y":	550,
+						"width":	10,
+						"height":	150
+					},
+					"color":	{
+						"r":	80,
+						"g":	80,
+						"b":	80,
+						"a":	255
+					}
+				}, {
+					"id":	5,
+					"sceneId":	1,
+					"name":	"editorBackground",
+					"bounds":	{
+						"x":	700,
+						"y":	550,
+						"width":	10,
+						"height":	150
+					},
+					"color":	{
+						"r":	80,
+						"g":	80,
+						"b":	80,
+						"a":	255
+					}
+				}, {
+					"id":	6,
+					"sceneId":	1,
+					"name":	"editorBackground",
+					"bounds":	{
+						"x":	790,
+						"y":	550,
+						"width":	10,
+						"height":	150
+					},
+					"color":	{
+						"r":	80,
+						"g":	80,
+						"b":	80,
+						"a":	255
+					}
+				}, {
+					"id":	7,
+					"sceneId":	1,
+					"name":	"editorBackground",
+					"bounds":	{
+						"x":	1010,
+						"y":	550,
+						"width":	10,
+						"height":	150
+					},
+					"color":	{
+						"r":	80,
+						"g":	80,
+						"b":	80,
+						"a":	255
+					}
+				}, {
+					"id":	8,
+					"sceneId":	1,
+					"name":	"editorBackground",
+					"bounds":	{
+						"x":	1100,
+						"y":	550,
+						"width":	10,
+						"height":	150
+					},
+					"color":	{
+						"r":	80,
+						"g":	80,
+						"b":	80,
+						"a":	255
+					}
+				}, {
+					"id":	9,
+					"sceneId":	1,
+					"name":	"editorBackground",
+					"bounds":	{
+						"x":	1190,
+						"y":	550,
+						"width":	10,
+						"height":	150
+					},
+					"color":	{
+						"r":	80,
+						"g":	80,
+						"b":	80,
+						"a":	255
+					}
+				}, {
+					"id":	10,
+					"sceneId":	1,
+					"name":	"editorBackground",
+					"bounds":	{
+						"x":	64,
+						"y":	1088,
+						"width":	1856,
+						"height":	864
+					},
+					"color":	{
+						"r":	127,
+						"g":	106,
+						"b":	79,
+						"a":	255
+					}
+				}, {
+					"id":	11,
+					"sceneId":	1,
+					"name":	"editorBackground",
+					"bounds":	{
+						"x":	1920,
+						"y":	1792,
+						"width":	64,
+						"height":	160
+					},
+					"color":	{
+						"r":	127,
+						"g":	106,
+						"b":	79,
+						"a":	255
+					}
+				}, {
+					"id":	12,
+					"sceneId":	1,
+					"name":	"editorBackground",
+					"bounds":	{
+						"x":	1984,
+						"y":	1088,
+						"width":	1888,
+						"height":	864
+					},
+					"color":	{
+						"r":	127,
+						"g":	106,
+						"b":	79,
+						"a":	255
+					}
+				}, {
+					"id":	13,
+					"sceneId":	1,
+					"name":	"editorBackground",
+					"bounds":	{
+						"x":	128,
+						"y":	1952,
+						"width":	224,
+						"height":	64
+					},
+					"color":	{
+						"r":	127,
+						"g":	106,
+						"b":	79,
+						"a":	255
+					}
+				}, {
+					"id":	14,
+					"sceneId":	1,
+					"name":	"editorBackground",
+					"bounds":	{
+						"x":	64,
+						"y":	2016,
+						"width":	3808,
+						"height":	1280
+					},
+					"color":	{
+						"r":	211,
+						"g":	176,
+						"b":	131,
+						"a":	255
+					}
+				}, {
+					"id":	15,
+					"sceneId":	1,
+					"name":	"editorBackground",
+					"bounds":	{
+						"x":	3808,
+						"y":	3136,
+						"width":	96,
+						"height":	160
+					},
+					"color":	{
+						"r":	255,
+						"g":	161,
+						"b":	0,
+						"a":	255
+					}
+				}, {
+					"id":	16,
+					"sceneId":	1,
+					"name":	"editorBackground",
+					"bounds":	{
+						"x":	4192,
+						"y":	832,
+						"width":	96,
+						"height":	160
+					},
+					"color":	{
+						"r":	255,
+						"g":	161,
+						"b":	0,
+						"a":	255
+					}
+				}, {
+					"id":	17,
+					"sceneId":	1,
+					"name":	"editorBackground",
+					"bounds":	{
+						"x":	1920,
+						"y":	832,
+						"width":	96,
+						"height":	160
+					},
+					"color":	{
+						"r":	255,
+						"g":	161,
+						"b":	0,
+						"a":	255
+					}
+				}, {
+					"id":	18,
+					"sceneId":	1,
+					"name":	"editorBackground",
+					"bounds":	{
+						"x":	1920,
+						"y":	1792,
+						"width":	96,
+						"height":	160
+					},
+					"color":	{
+						"r":	255,
+						"g":	161,
+						"b":	0,
+						"a":	255
+					}
+				}, {
+					"id":	19,
+					"sceneId":	1,
+					"name":	"editorBackground",
+					"bounds":	{
+						"x":	2368,
+						"y":	3136,
+						"width":	96,
+						"height":	160
+					},
+					"color":	{
+						"r":	255,
+						"g":	161,
+						"b":	0,
+						"a":	255
+					}
+				}, {
+					"id":	20,
+					"sceneId":	1,
+					"name":	"editorBackground",
+					"bounds":	{
+						"x":	3872,
+						"y":	3200,
+						"width":	32,
+						"height":	32
+					},
+					"color":	{
+						"r":	127,
+						"g":	106,
+						"b":	79,
+						"a":	255
+					}
+				}, {
+					"id":	21,
+					"sceneId":	1,
+					"name":	"editorBackground",
+					"bounds":	{
+						"x":	2432,
+						"y":	3200,
+						"width":	32,
+						"height":	32
+					},
+					"color":	{
+						"r":	127,
+						"g":	106,
+						"b":	79,
+						"a":	255
+					}
+				}, {
+					"id":	22,
+					"sceneId":	1,
+					"name":	"editorBackground",
+					"bounds":	{
+						"x":	1984,
+						"y":	1856,
+						"width":	32,
+						"height":	32
+					},
+					"color":	{
+						"r":	127,
+						"g":	106,
+						"b":	79,
+						"a":	255
+					}
+				}, {
+					"id":	23,
+					"sceneId":	1,
+					"name":	"editorBackground",
+					"bounds":	{
+						"x":	4256,
+						"y":	896,
+						"width":	32,
+						"height":	32
+					},
+					"color":	{
+						"r":	127,
+						"g":	106,
+						"b":	79,
+						"a":	255
+					}
+				}],
+			"lights":	[{
+					"position":	{
+						"x":	1728,
+						"y":	640
+					},
+					"radius":	25,
+					"lightingRadius":	300,
+					"color":	{
+						"r":	253,
+						"g":	249,
+						"b":	0,
+						"a":	255
+					},
+					"flicker":	false,
+					"breakable":	false,
+					"isOn":	true,
+					"dimness":	0
+				}, {
+					"position":	{
+						"x":	2400,
+						"y":	640
+					},
+					"radius":	25,
+					"lightingRadius":	290,
+					"color":	{
+						"r":	253,
+						"g":	249,
+						"b":	0,
+						"a":	255
+					},
+					"flicker":	true,
+					"breakable":	false,
+					"isOn":	false,
+					"dimness":	0
+				}]
+		}]
+}

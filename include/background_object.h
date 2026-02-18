@@ -2,7 +2,7 @@
 #define BACKGROUND_OBJECT_H
 
 #include <stdlib.h>
-#include "raylib.h"
+#include <raylib.h>
 
 typedef struct BackgroundObject {
     int id;

@@ -1,4 +1,4 @@
-#include "raylib.h"
+#include <raylib.h>
 
 #ifndef DIALOGUE_BUBBLE_H
 #define DIALOGUE_BUBBLE_H

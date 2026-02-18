@@ -1,7 +1,7 @@
 #ifndef GRID_H
 #define GRID_H
 
-#include "raylib.h"
+#include <raylib.h>
 #include <stdbool.h>
 
 typedef struct Grid {

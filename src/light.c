@@ -1,7 +1,7 @@
 #include "light.h"
 #include <math.h>
 
-Light* createLight(Vector2 position, float radius, float lightingRadius, Color color, bool flicker, bool breakable, bool isOn) {
+Light* createLight(Vector2 position, float radius, float lightingRadius, Color color, bool flicker, bool breakable, bool isOn, unsigned char dimness) {
     Light* light = (Light*)malloc(sizeof(Light));
     if (light != NULL) {
         light->position = position;
@@ -11,6 +11,7 @@ Light* createLight(Vector2 position, float radius, float lightingRadius, Color c
         light->flicker = flicker;
         light->breakable = breakable;
         light->isOn = isOn;
+        light->dimness = dimness;
     }
     return light;
 }

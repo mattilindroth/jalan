@@ -1,7 +1,7 @@
 #ifndef OBSTACLE_HH
 #define OBSTACLE_HH
 
-#include "raylib.h"
+#include <raylib.h>
 
 typedef struct Obstacle {
     int id;

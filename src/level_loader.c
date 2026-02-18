@@ -1,5 +1,27 @@
 #include "level_loader.h"
 
+static Vector2 loadVector2OrDefault(cJSON *parent, const char *key, Vector2 fallback) {
+    cJSON *vectorJson = cJSON_GetObjectItem(parent, key);
+    if (!vectorJson) return fallback;
+
+    cJSON *xItem = cJSON_GetObjectItem(vectorJson, "x");
+    cJSON *yItem = cJSON_GetObjectItem(vectorJson, "y");
+
+    if (!cJSON_IsNumber(xItem) || !cJSON_IsNumber(yItem)) return fallback;
+
+    return (Vector2){
+        (float)xItem->valuedouble,
+        (float)yItem->valuedouble
+    };
+}
+
+static cJSON *createVector2Json(Vector2 value) {
+    cJSON *vectorJson = cJSON_CreateObject();
+    cJSON_AddNumberToObject(vectorJson, "x", value.x);
+    cJSON_AddNumberToObject(vectorJson, "y", value.y);
+    return vectorJson;
+}
+
 
 /**********************************************************
  *** Helper function to load a Color from a cJSON object
@@ -37,13 +59,21 @@ BackgroundObject *loadBackgroundObject(cJSON *bgObjectJson) {
     int id = cJSON_GetObjectItem(bgObjectJson, "id")->valueint;
     int sceneId = cJSON_GetObjectItem(bgObjectJson, "sceneId")->valueint;
 
+    // Support both "bounds" and legacy/alternate key "rectangle"
     cJSON *boundsJson = cJSON_GetObjectItem(bgObjectJson, "bounds");
-    Rectangle bounds = {
-        cJSON_GetObjectItem(boundsJson, "x")->valuedouble,
-        cJSON_GetObjectItem(boundsJson, "y")->valuedouble,
-        cJSON_GetObjectItem(boundsJson, "width")->valuedouble,
-        cJSON_GetObjectItem(boundsJson, "height")->valuedouble
-    };
+    if (!boundsJson) boundsJson = cJSON_GetObjectItem(bgObjectJson, "rectangle");
+
+    Rectangle bounds = {0};
+    if (boundsJson) {
+        cJSON *xItem = cJSON_GetObjectItem(boundsJson, "x");
+        cJSON *yItem = cJSON_GetObjectItem(boundsJson, "y");
+        cJSON *wItem = cJSON_GetObjectItem(boundsJson, "width");
+        cJSON *hItem = cJSON_GetObjectItem(boundsJson, "height");
+        bounds.x = xItem ? xItem->valuedouble : 0.0;
+        bounds.y = yItem ? yItem->valuedouble : 0.0;
+        bounds.width = wItem ? wItem->valuedouble : 0.0;
+        bounds.height = hItem ? hItem->valuedouble : 0.0;
+    }
 
     cJSON *colorJson = cJSON_GetObjectItem(bgObjectJson, "color");
     Color color = loadColor(colorJson);
@@ -72,8 +102,11 @@ Light *loadLight(cJSON *lightJson) {
     
     cJSON *isOnItem = cJSON_GetObjectItem(lightJson, "isOn");
     bool isOn = isOnItem ? cJSON_IsTrue(isOnItem) : true;  // Default to true if not specified
+    
+    cJSON *dimnessItem = cJSON_GetObjectItem(lightJson, "dimness");
+    unsigned char dimness = dimnessItem ? (unsigned char)dimnessItem->valueint : 0;  // Default to 0 (bright)
 
-    Light* light = createLight(position, radius, lightingRadius, color, flicker, breakable, isOn);
+    Light* light = createLight(position, radius, lightingRadius, color, flicker, breakable, isOn, dimness);
     if (light) {
         light->isOn = true;  // Default lights to on when loaded
         light->flickerTimer = 0.0f;  // Reset flicker timer
@@ -92,22 +125,34 @@ Enemy *loadEnemy(cJSON *enemyJson) {
         cJSON_GetObjectItem(posJson, "y")->valueint
     };
 
+
     cJSON *patrolAJson = cJSON_GetObjectItem(enemyJson, "patrolPointA");
+    if (!patrolAJson) patrolAJson = posJson;
     Vector2 patrolA = {
         cJSON_GetObjectItem(patrolAJson, "x")->valueint,
         cJSON_GetObjectItem(patrolAJson, "y")->valueint
     };
 
     cJSON *patrolBJson = cJSON_GetObjectItem(enemyJson, "patrolPointB");
+    if (!patrolBJson) patrolBJson = posJson;
     Vector2 patrolB = {
         cJSON_GetObjectItem(patrolBJson, "x")->valueint,
         cJSON_GetObjectItem(patrolBJson, "y")->valueint
     };
 
     float speed = cJSON_GetObjectItem(enemyJson, "speed")->valuedouble;
-    bool hasLight = cJSON_IsTrue(cJSON_GetObjectItem(enemyJson, "hasLight"));
+    //bool hasLight = cJSON_IsTrue(cJSON_GetObjectItem(enemyJson, "hasLight"));
+    cJSON *doesPatrolItem = cJSON_GetObjectItem(enemyJson, "doesPatrol");
+    bool doesPatrol = doesPatrolItem ? cJSON_IsTrue(doesPatrolItem) : true;
 
-    return createEnemy(id, sceneId, position, patrolA, patrolB, speed, hasLight);
+    Enemy *enemy = createEnemy(id, sceneId, position, patrolA, patrolB, speed, doesPatrol);
+    if (!enemy) return NULL;
+
+    enemy->lastKnownPlayerPosition = loadVector2OrDefault(enemyJson, "lastKnownPlayerPosition", position);
+    enemy->searchOrigin = loadVector2OrDefault(enemyJson, "searchOrigin", position);
+    enemy->lookAtDirection = loadVector2OrDefault(enemyJson, "lookAtDirection", (Vector2){0.0f, 0.0f});
+
+    return enemy;
 }
 
 
@@ -153,10 +198,9 @@ Game* loadLevel(const char* filename, Game *game) {
         cJSON *playerJson = cJSON_GetObjectItem(level, "player");
         if (playerJson) {
             int playerId = cJSON_GetObjectItem(playerJson, "id")->valueint;
-            int playerX = cJSON_GetObjectItem(playerJson, "x")->valueint;
-            int playerY = cJSON_GetObjectItem(playerJson, "y")->valueint;
+            Vector2 playerPos = loadVector2OrDefault(playerJson, "position", (Vector2){0.0f, 0.0f});
             
-            Player *player = createPlayer(playerId, (Vector2){playerX, playerY}, 80, 80);
+            Player *player = createPlayer(playerId, playerPos, 80, 80);
             game->player = player;
         }
         
@@ -168,7 +212,7 @@ Game* loadLevel(const char* filename, Game *game) {
                 cJSON *enemyJson = cJSON_GetArrayItem(enemiesArray, e);
                 
                 Enemy *enemy = loadEnemy(enemyJson);
-                game->enemy = enemy;
+                addEnemyToGame(game, enemy);
             }
         }
         
@@ -230,8 +274,7 @@ Game* saveLevel(const char* filename, Game *game) {
     if (game->player) {
         cJSON *player = cJSON_CreateObject();
         cJSON_AddNumberToObject(player, "id", game->player->id);
-        cJSON_AddNumberToObject(player, "x", game->player->position.x);
-        cJSON_AddNumberToObject(player, "y", game->player->position.y);
+        cJSON_AddItemToObject(player, "position", createVector2Json(game->player->position));
         cJSON_AddItemToObject(level, "player", player);
     }
     
@@ -239,30 +282,28 @@ Game* saveLevel(const char* filename, Game *game) {
     cJSON *enemies = cJSON_CreateArray();
     cJSON_AddItemToObject(level, "enemies", enemies);
     
-    if (game->enemy) {
-        cJSON *enemy = cJSON_CreateObject();
-        cJSON_AddNumberToObject(enemy, "id", game->enemy->id);
-        cJSON_AddNumberToObject(enemy, "sceneId", game->enemy->sceneId);
-        
-        cJSON *position = cJSON_CreateObject();
-        cJSON_AddNumberToObject(position, "x", game->enemy->position.x);
-        cJSON_AddNumberToObject(position, "y", game->enemy->position.y);
-        cJSON_AddItemToObject(enemy, "position", position);
-        
-        cJSON *patrolA = cJSON_CreateObject();
-        cJSON_AddNumberToObject(patrolA, "x", game->enemy->patrolPointA.x);
-        cJSON_AddNumberToObject(patrolA, "y", game->enemy->patrolPointA.y);
-        cJSON_AddItemToObject(enemy, "patrolPointA", patrolA);
-        
-        cJSON *patrolB = cJSON_CreateObject();
-        cJSON_AddNumberToObject(patrolB, "x", game->enemy->patrolPointB.x);
-        cJSON_AddNumberToObject(patrolB, "y", game->enemy->patrolPointB.y);
-        cJSON_AddItemToObject(enemy, "patrolPointB", patrolB);
-        
-        cJSON_AddNumberToObject(enemy, "speed", game->enemy->speed);
-        cJSON_AddBoolToObject(enemy, "hasLight", false);  // Default value since not in struct
-        
-        cJSON_AddItemToArray(enemies, enemy);
+    if (game->enemies) {
+        for (int i = 0; i < game->enemies->size; i++) {
+            Enemy *gameEnemy = (Enemy*)dynamic_array_get(game->enemies, i);
+            if (!gameEnemy || gameEnemy->sceneId != game->currentScene->id) continue;
+
+            cJSON *enemy = cJSON_CreateObject();
+            cJSON_AddNumberToObject(enemy, "id", gameEnemy->id);
+            cJSON_AddNumberToObject(enemy, "sceneId", gameEnemy->sceneId);
+
+            cJSON_AddItemToObject(enemy, "position", createVector2Json(gameEnemy->position));
+            cJSON_AddItemToObject(enemy, "patrolPointA", createVector2Json(gameEnemy->patrolPointA));
+            cJSON_AddItemToObject(enemy, "patrolPointB", createVector2Json(gameEnemy->patrolPointB));
+
+            cJSON_AddItemToObject(enemy, "lastKnownPlayerPosition", createVector2Json(gameEnemy->lastKnownPlayerPosition));
+            cJSON_AddItemToObject(enemy, "searchOrigin", createVector2Json(gameEnemy->searchOrigin));
+            cJSON_AddItemToObject(enemy, "lookAtDirection", createVector2Json(gameEnemy->lookAtDirection));
+
+            cJSON_AddNumberToObject(enemy, "speed", gameEnemy->speed);
+            cJSON_AddBoolToObject(enemy, "doesPatrol", gameEnemy->doesPatrol);
+
+            cJSON_AddItemToArray(enemies, enemy);
+        }
     }
     
     // Add obstacles data
@@ -337,11 +378,7 @@ Game* saveLevel(const char* filename, Game *game) {
         for (int i = 0; i < game->lights->size; i++) {
             Light *light = (Light*)dynamic_array_get(game->lights, i);
             cJSON *lightObj = cJSON_CreateObject();
-            
-            cJSON *position = cJSON_CreateObject();
-            cJSON_AddNumberToObject(position, "x", light->position.x);
-            cJSON_AddNumberToObject(position, "y", light->position.y);
-            cJSON_AddItemToObject(lightObj, "position", position);
+            cJSON_AddItemToObject(lightObj, "position", createVector2Json(light->position));
             
             cJSON_AddNumberToObject(lightObj, "radius", light->radius);
             cJSON_AddNumberToObject(lightObj, "lightingRadius", light->lightingRadius);
@@ -356,6 +393,7 @@ Game* saveLevel(const char* filename, Game *game) {
             cJSON_AddBoolToObject(lightObj, "flicker", light->flicker);
             cJSON_AddBoolToObject(lightObj, "breakable", light->breakable);
             cJSON_AddBoolToObject(lightObj, "isOn", light->isOn);
+            cJSON_AddNumberToObject(lightObj, "dimness", light->dimness);
             
             cJSON_AddItemToArray(lights, lightObj);
         }

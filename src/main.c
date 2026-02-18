@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "raylib.h"
+#include <raylib.h>
 #include "scene.h"
 #include "game.h"
 #include "level_loader.h"

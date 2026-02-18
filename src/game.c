@@ -10,15 +10,16 @@ Game* createGame(Scene* initialScene, enum GameState initialState) {
         game->obstacles = dynamic_array_create_default();
         game->backgroundObjects = dynamic_array_create_default();
         game->lights = dynamic_array_create_default();
+        game->enemies = dynamic_array_create_default();
         game->player = NULL;
-        game->enemy = NULL;
         game->editorGrid = createGrid(32.0f);  // 32 pixel grid
         
         // Initialize editor state
         game->selectedObstacle = NULL;
         game->selectedBgObj = NULL;
         game->selectedLight = NULL;
-        game->editorMode = 0;  // 0=obstacles, 1=background objects, 2=lights
+        game->selectedEnemy = NULL;
+        game->editorMode = 0;  // 0=obstacles, 1=background objects, 2=lights, 3=enemies
         game->currentColorIndex = 0;
         game->dragMode = 0;  // 0=none, 1=move, 2=resize
         game->dragStartPos = (Vector2){0, 0};
@@ -49,6 +50,12 @@ void addBackgroundObjectToGame(Game* game, BackgroundObject* backgroundObject) {
 void addLightToGame(Game* game, Light* light) {
     if(game != NULL && light != NULL) {
         dynamic_array_push(game->lights, light);
+    }
+}
+
+void addEnemyToGame(Game* game, Enemy* enemy) {
+    if(game != NULL && enemy != NULL) {
+        dynamic_array_push(game->enemies, enemy);
     }
 }
 
@@ -138,15 +145,21 @@ int updateGame(Game* game) {
         return 0; // Skip updates in editor mode
     }
     
-    int sceneId = game->currentScene->id;
-
     if(game->state == STATE_STORY) {
 
     } else {
 
         updatePlayer(game->player); 
 
-        updateEnemy(game->enemy, getPlayerPosition(game->player));
+        if (game->enemies) {
+            int sceneId = game->currentScene->id;
+            for (int i = 0; i < game->enemies->size; i++) {
+                Enemy* enemy = (Enemy*)dynamic_array_get(game->enemies, i);
+                if (enemy && enemy->sceneId == sceneId) {
+                    updateEnemy(enemy, getPlayerPosition(game->player));
+                }
+            }
+        }
 
         resolveCollisions(game);
     }
@@ -160,16 +173,18 @@ int handleEditorInput(Game *game) {
         game->selectedObstacle = NULL;  // Clear selections
         game->selectedBgObj = NULL;
         game->selectedLight = NULL;
+        game->selectedEnemy = NULL;
         game->dragMode = 0;
         return 0;
     }
 
     // Mode switching (Tab key)
     if (IsKeyPressed(KEY_TAB)) {
-        game->editorMode = (game->editorMode + 1) % 3;  // Toggle between 0, 1, and 2
+        game->editorMode = (game->editorMode + 1) % 4;  // Toggle between 0, 1, 2, and 3
         game->selectedObstacle = NULL;  // Clear selections when switching modes
         game->selectedBgObj = NULL;
         game->selectedLight = NULL;
+        game->selectedEnemy = NULL;
         game->dragMode = 0;
     }
 
@@ -218,6 +233,9 @@ int handleEditorInput(Game *game) {
         } else if (game->editorMode == 2 && game->selectedLight != NULL) {
             removeLightFromGame(game, game->selectedLight);
             game->selectedLight = NULL;
+        } else if (game->editorMode == 3 && game->selectedEnemy != NULL) {
+            removeEnemyFromGame(game, game->selectedEnemy);
+            game->selectedEnemy = NULL;
         }
         game->dragMode = 0;
     }
@@ -259,16 +277,58 @@ int handleEditorInput(Game *game) {
             float mouseWheelMove = GetMouseWheelMove();
             if (mouseWheelMove != 0.0f) {
                 game->selectedLight->lightingRadius += mouseWheelMove * 10.0f;
-                game->selectedLight->lightingRadius = fmaxf(20.0f, fminf(300.0f, game->selectedLight->lightingRadius));
+                game->selectedLight->lightingRadius = fmaxf(20.0f, fminf(LIGHTING_MAX_RADIUS, game->selectedLight->lightingRadius));
             }
             if (IsKeyPressed(KEY_EQUAL) || IsKeyPressed(KEY_KP_ADD)) {
                 game->selectedLight->lightingRadius += 10.0f;
-                game->selectedLight->lightingRadius = fminf(300.0f, game->selectedLight->lightingRadius);
+                game->selectedLight->lightingRadius = fminf(LIGHTING_MAX_RADIUS, game->selectedLight->lightingRadius);
             }
             if (IsKeyPressed(KEY_MINUS) || IsKeyPressed(KEY_KP_SUBTRACT)) {
                 game->selectedLight->lightingRadius -= 10.0f;
                 game->selectedLight->lightingRadius = fmaxf(20.0f, game->selectedLight->lightingRadius);
             }
+        }
+        
+        // Adjust dimness with V key + mouse wheel or +/- keys
+        if (IsKeyDown(KEY_V)) {
+            float mouseWheelMove = GetMouseWheelMove();
+            if (mouseWheelMove != 0.0f) {
+                int newDimness = (int)game->selectedLight->dimness - (int)(mouseWheelMove * 10.0f);
+                game->selectedLight->dimness = (unsigned char)fmaxf(0.0f, fminf(255.0f, (float)newDimness));
+            }
+            if (IsKeyPressed(KEY_EQUAL) || IsKeyPressed(KEY_KP_ADD)) {
+                int newDimness = (int)game->selectedLight->dimness - 10;
+                game->selectedLight->dimness = (unsigned char)fmaxf(0.0f, (float)newDimness);
+            }
+            if (IsKeyPressed(KEY_MINUS) || IsKeyPressed(KEY_KP_SUBTRACT)) {
+                int newDimness = (int)game->selectedLight->dimness + 10;
+                game->selectedLight->dimness = (unsigned char)fminf(255.0f, (float)newDimness);
+            }
+        }
+    }
+
+    // Enemy patrol editing (only in enemy mode with selected enemy)
+    if (game->editorMode == 3 && game->selectedEnemy != NULL) {
+        if (IsKeyPressed(KEY_P)) {
+            game->selectedEnemy->doesPatrol = !game->selectedEnemy->doesPatrol;
+        }
+
+        if (IsKeyPressed(KEY_ONE)) {
+            Vector2 mousePos = GetMousePosition();
+            Vector2 mouseWorldPos = GetScreenToWorld2D(mousePos, game->camera);
+            game->selectedEnemy->patrolPointA = snapToGrid(game->editorGrid, mouseWorldPos);
+        }
+
+        if (IsKeyPressed(KEY_TWO)) {
+            Vector2 mousePos = GetMousePosition();
+            Vector2 mouseWorldPos = GetScreenToWorld2D(mousePos, game->camera);
+            game->selectedEnemy->patrolPointB = snapToGrid(game->editorGrid, mouseWorldPos);
+        }
+
+        // Toggle look direction: F flips between right (1,0) and left (-1,0)
+        if (IsKeyPressed(KEY_F)) {
+            game->selectedEnemy->lookAtDirection.x = (game->selectedEnemy->lookAtDirection.x >= 0.0f) ? -1.0f : 1.0f;
+            game->selectedEnemy->lookAtDirection.y = 0.0f;
         }
     }
 
@@ -302,6 +362,7 @@ int handleEditorInput(Game *game) {
                     game->selectedObstacle = clickedObstacle;
                     game->selectedBgObj = NULL;
                     game->selectedLight = NULL;
+                    game->selectedEnemy = NULL;
                     game->dragMode = 2; // Resize mode
                     game->dragStartPos = mouseWorldPos;
                     game->dragStartObjPos = (Vector2){clickedObstacle->rectangle.x, clickedObstacle->rectangle.y};
@@ -311,6 +372,7 @@ int handleEditorInput(Game *game) {
                     game->selectedObstacle = clickedObstacle;
                     game->selectedBgObj = NULL;
                     game->selectedLight = NULL;
+                    game->selectedEnemy = NULL;
                     game->dragMode = 1; // Move mode
                     game->dragStartPos = mouseWorldPos;
                     game->dragStartObjPos = (Vector2){clickedObstacle->rectangle.x, clickedObstacle->rectangle.y};
@@ -322,6 +384,7 @@ int handleEditorInput(Game *game) {
                 game->selectedObstacle = newObs;
                 game->selectedBgObj = NULL;
                 game->selectedLight = NULL;
+                game->selectedEnemy = NULL;
                 game->dragMode = 0;
             }
         } else if (game->editorMode == 1) {  // Background object mode
@@ -333,6 +396,7 @@ int handleEditorInput(Game *game) {
                     game->selectedBgObj = clickedBgObj;
                     game->selectedObstacle = NULL;
                     game->selectedLight = NULL;
+                    game->selectedEnemy = NULL;
                     game->dragMode = 2; // Resize mode
                     game->dragStartPos = mouseWorldPos;
                     game->dragStartObjPos = (Vector2){clickedBgObj->bounds.x, clickedBgObj->bounds.y};
@@ -342,6 +406,7 @@ int handleEditorInput(Game *game) {
                     game->selectedBgObj = clickedBgObj;
                     game->selectedObstacle = NULL;
                     game->selectedLight = NULL;
+                    game->selectedEnemy = NULL;
                     game->dragMode = 1; // Move mode
                     game->dragStartPos = mouseWorldPos;
                     game->dragStartObjPos = (Vector2){clickedBgObj->bounds.x, clickedBgObj->bounds.y};
@@ -352,9 +417,10 @@ int handleEditorInput(Game *game) {
                 game->selectedBgObj = newBgObj;
                 game->selectedObstacle = NULL;
                 game->selectedLight = NULL;
+                game->selectedEnemy = NULL;
                 game->dragMode = 0;
             }
-        } else {  // Light mode (editorMode == 2)
+        } else if (game->editorMode == 2) {  // Light mode
             Light* clickedLight = findLightAtPosition(game, mouseWorldPos);
             
             if (clickedLight != NULL) {
@@ -362,6 +428,7 @@ int handleEditorInput(Game *game) {
                 game->selectedLight = clickedLight;
                 game->selectedObstacle = NULL;
                 game->selectedBgObj = NULL;
+                game->selectedEnemy = NULL;
                 game->dragMode = 1; // Move mode
                 game->dragStartPos = mouseWorldPos;
                 game->dragStartObjPos = (Vector2){clickedLight->position.x, clickedLight->position.y};
@@ -371,6 +438,26 @@ int handleEditorInput(Game *game) {
                 game->selectedLight = newLight;
                 game->selectedObstacle = NULL;
                 game->selectedBgObj = NULL;
+                game->selectedEnemy = NULL;
+                game->dragMode = 0;
+            }
+        } else {  // Enemy mode (editorMode == 3)
+            Enemy* clickedEnemy = findEnemyAtPosition(game, mouseWorldPos);
+
+            if (clickedEnemy != NULL) {
+                game->selectedEnemy = clickedEnemy;
+                game->selectedObstacle = NULL;
+                game->selectedBgObj = NULL;
+                game->selectedLight = NULL;
+                game->dragMode = 1; // Move mode
+                game->dragStartPos = mouseWorldPos;
+                game->dragStartObjPos = clickedEnemy->position;
+            } else {
+                Enemy* newEnemy = createEnemyAtPosition(game, mouseWorldPos);
+                game->selectedEnemy = newEnemy;
+                game->selectedObstacle = NULL;
+                game->selectedBgObj = NULL;
+                game->selectedLight = NULL;
                 game->dragMode = 0;
             }
         }
@@ -393,6 +480,9 @@ int handleEditorInput(Game *game) {
             } else if (game->selectedLight != NULL) {
                 game->selectedLight->position.x = snappedPos.x;
                 game->selectedLight->position.y = snappedPos.y;
+            } else if (game->selectedEnemy != NULL) {
+                game->selectedEnemy->position.x = snappedPos.x;
+                game->selectedEnemy->position.y = snappedPos.y;
             }
         } else if (game->dragMode == 2) { // Resize mode
             float newWidth = game->dragStartObjSize.x + deltaPos.x;
@@ -426,6 +516,7 @@ int handleEditorInput(Game *game) {
         game->selectedObstacle = NULL;
         game->selectedBgObj = NULL;
         game->selectedLight = NULL;
+        game->selectedEnemy = NULL;
         game->dragMode = 0;
     }
 
@@ -516,6 +607,50 @@ int updateCamera(Game* game) {
     return 0;
 }
 
+void renderFogOfWar(Game* game) {
+    if (!game || game->state == STATE_EDITOR) return;
+    
+    // Draw fog overlay directly with alpha blending
+    // First pass: draw fog everywhere
+    BeginBlendMode(BLEND_ALPHA);
+    DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), (Color){0, 0, 0, 220});
+    EndBlendMode();
+    
+    // Second pass: lighten areas around lights (subtract fog darkness)
+    BeginMode2D(game->camera);
+    BeginBlendMode(BLEND_ADDITIVE);
+    
+    if (game->lights) {
+        for(int i = 0; i < game->lights->size; i++) {
+            Light* light = (Light*)dynamic_array_get(game->lights, i);
+            if (light && light->isOn) {
+                // Calculate maximum brightness based on dimness
+                // dimness 0 = full brightness (255), dimness 255 = no light (0)
+                float maxBrightness = 255.0f - (float)light->dimness;
+                
+                if (maxBrightness > 0) {
+                    // Draw a smooth radial gradient by drawing many circles
+                    int segments = 100;
+                    for (int j = segments; j > 0; j--) {
+                        float t = (float)j / (float)segments;
+                        float radius = light->lightingRadius * t;
+                        
+                        // Exponential falloff for natural lighting - stronger at center
+                        float intensity = t * t;
+                        unsigned char brightness = (unsigned char)(maxBrightness * intensity / (float)segments * 15.0f);
+                        
+                        Color lightColor = (Color){brightness, brightness, brightness, brightness};
+                        DrawCircleV(light->position, radius, lightColor);
+                    }
+                }
+            }
+        }
+    }
+    
+    EndBlendMode();
+    EndMode2D();
+}
+
 int renderGame(Game* game) {
     BeginDrawing();
     ClearBackground(RAYWHITE);
@@ -546,7 +681,48 @@ int renderGame(Game* game) {
     }
 
     //Render player
-    renderPlayer(game->player);  
+    renderPlayer(game->player);
+
+    // Render enemies
+    if (game->enemies) {
+        int sceneId = game->currentScene->id;
+        for (int i = 0; i < game->enemies->size; i++) {
+            Enemy* enemy = (Enemy*)dynamic_array_get(game->enemies, i);
+            if (!enemy || enemy->sceneId != sceneId) continue;
+
+            renderEnemy(enemy);
+
+            if (game->state == STATE_EDITOR) {
+                if (enemy->doesPatrol) {
+                    DrawLineV(enemy->patrolPointA, enemy->patrolPointB, DARKGREEN);
+                    DrawCircleV(enemy->patrolPointA, 6.0f, GREEN);
+                    DrawCircleV(enemy->patrolPointB, 6.0f, GREEN);
+                } else {
+                    DrawCircleV(enemy->patrolPointA, 4.0f, DARKGRAY);
+                    DrawCircleV(enemy->patrolPointB, 4.0f, DARKGRAY);
+                }
+
+                // Draw look direction arrow for every enemy in editor
+                {
+                    float arrowLen = 28.0f;
+                    Vector2 arrowEnd = {
+                        enemy->position.x + enemy->lookAtDirection.x * arrowLen,
+                        enemy->position.y + enemy->lookAtDirection.y * arrowLen
+                    };
+                    Color arrowColor = (enemy == game->selectedEnemy) ? YELLOW : (Color){255, 200, 0, 160};
+                    DrawLineV(enemy->position, arrowEnd, arrowColor);
+                    // Small arrowhead
+                    DrawCircleV(arrowEnd, 4.0f, arrowColor);
+                }
+
+                if (enemy == game->selectedEnemy) {
+                    DrawCircleLines(enemy->position.x, enemy->position.y, 24.0f, RED);
+                    DrawText("A", enemy->patrolPointA.x - 5, enemy->patrolPointA.y - 22, 16, GREEN);
+                    DrawText("B", enemy->patrolPointB.x - 5, enemy->patrolPointB.y - 22, 16, GREEN);
+                }
+            }
+        }
+    }
 
     //Render obstacles
     for(int i = 0; i < game->obstacles->size; i++) {
@@ -626,6 +802,9 @@ int renderGame(Game* game) {
 
     EndMode2D();
     
+    // Render fog-of-war (only in non-editor modes)
+    renderFogOfWar(game);
+    
     // Draw UI elements (not affected by camera)
     if (game->state == STATE_EDITOR) {
         DrawText("EDITOR MODE - Press ESC to return to game", 10, 10, 20, RED);
@@ -638,9 +817,12 @@ int renderGame(Game* game) {
             } else if (game->editorMode == 1) {
                 modeText = "BACKGROUND OBJECTS";
                 modeColor = ORANGE;
-            } else {
+            } else if (game->editorMode == 2) {
                 modeText = "LIGHTS";
                 modeColor = PURPLE;
+            } else {
+                modeText = "ENEMIES";
+                modeColor = RED;
             }
             DrawText(TextFormat("Mode: %s (TAB to switch)", modeText), 10, 40, 18, modeColor);
             
@@ -655,10 +837,12 @@ int renderGame(Game* game) {
             DrawText("Mouse: Left=Select/Create, Drag=Move, Corner=Resize, Right=Deselect", 10, 140, 16, DARKGRAY);
             DrawText("Keys: TAB=Switch Mode, DEL=Delete Selected, Shift+S=Save", 10, 165, 16, DARKGRAY);
             if (game->editorMode == 2) {
-                DrawText("Light Controls: F=Flicker, B=Breakable, R+Wheel/±=Radius, L+Wheel/±=Lighting", 10, 190, 16, PURPLE);
+                DrawText("Light Controls: F=Flicker, B=Breakable, R+Wheel/±=Radius, L+Wheel/±=Lighting, V+Wheel/±=Dimness", 10, 190, 16, PURPLE);
+            } else if (game->editorMode == 3) {
+                DrawText("Enemy Controls: P=Toggle Patrol, 1=Set Patrol A (mouse), 2=Set Patrol B (mouse), F=Flip LookDir", 10, 190, 16, RED);
             }
             
-            int yOffset = (game->editorMode == 2) ? 215 : 190;
+            int yOffset = (game->editorMode == 2 || game->editorMode == 3) ? 215 : 190;
             if (game->selectedObstacle != NULL) {
                 DrawText(TextFormat("Selected Obstacle: ID=%d, Pos=(%.0f,%.0f), Size=(%.0fx%.0f)", 
                     game->selectedObstacle->id,
@@ -674,14 +858,28 @@ int renderGame(Game* game) {
                     game->selectedBgObj->bounds.width,
                     game->selectedBgObj->bounds.height), 10, yOffset, 16, ORANGE);
             } else if (game->selectedLight != NULL) {
-                DrawText(TextFormat("Selected Light: Pos=(%.0f,%.0f), Radius=%.0f, Lighting=%.0f", 
+                DrawText(TextFormat("Selected Light: Pos=(%.0f,%.0f), Radius=%.0f, Lighting=%.0f, Dimness=%d", 
                     game->selectedLight->position.x,
                     game->selectedLight->position.y,
                     game->selectedLight->radius,
-                    game->selectedLight->lightingRadius), 10, yOffset, 16, PURPLE);
+                    game->selectedLight->lightingRadius,
+                    game->selectedLight->dimness), 10, yOffset, 16, PURPLE);
                 DrawText(TextFormat("Properties: Flicker=%s, Breakable=%s", 
                     game->selectedLight->flicker ? "ON" : "OFF",
                     game->selectedLight->breakable ? "ON" : "OFF"), 10, yOffset + 20, 16, PURPLE);
+            } else if (game->selectedEnemy != NULL) {
+                DrawText(TextFormat("Selected Enemy: ID=%d, Pos=(%.0f,%.0f), Patrol=%s", 
+                    game->selectedEnemy->id,
+                    game->selectedEnemy->position.x,
+                    game->selectedEnemy->position.y,
+                    game->selectedEnemy->doesPatrol ? "ON" : "OFF"), 10, yOffset, 16, RED);
+                DrawText(TextFormat("Patrol A=(%.0f,%.0f), B=(%.0f,%.0f), Speed=%.1f, Look=%s", 
+                    game->selectedEnemy->patrolPointA.x,
+                    game->selectedEnemy->patrolPointA.y,
+                    game->selectedEnemy->patrolPointB.x,
+                    game->selectedEnemy->patrolPointB.y,
+                    game->selectedEnemy->speed,
+                    game->selectedEnemy->lookAtDirection.x >= 0.0f ? "RIGHT" : "LEFT"), 10, yOffset + 20, 16, RED);
             }
         }
     }
@@ -695,8 +893,12 @@ void destroyGame(Game* game) {
         if (game->player != NULL) {
             destroyPlayer(game->player);
         }
-        if (game->enemy != NULL) {
-            destroyEnemy(game->enemy);
+        if (game->enemies != NULL) {
+            for (int i = 0; i < game->enemies->size; i++) {
+                Enemy* enemy = (Enemy*)dynamic_array_get(game->enemies, i);
+                destroyEnemy(enemy);
+            }
+            dynamic_array_destroy(game->enemies);
         }
         if (game->obstacles != NULL) {
             for (int i = 0; i < game->obstacles->size; i++) {
@@ -872,7 +1074,7 @@ Light* createLightAtPosition(Game* game, Vector2 worldPos) {
     
     // Create light with default properties
     Color lightColor = getEditorColor(game->currentColorIndex);
-    Light* newLight = createLight(snappedPos, 20.0f, 100.0f, lightColor, false, false, true);
+    Light* newLight = createLight(snappedPos, 20.0f, 100.0f, lightColor, false, false, true, 0);
     if (newLight) {
         newLight->isOn = true;
         newLight->flickerTimer = 0.0f;
@@ -890,6 +1092,54 @@ void removeLightFromGame(Game* game, Light* light) {
         if (obj == light) {
             destroyLight(obj);
             dynamic_array_remove(game->lights, i);
+            break;
+        }
+    }
+}
+
+Enemy* findEnemyAtPosition(Game* game, Vector2 worldPos) {
+    if (!game || !game->enemies) return NULL;
+
+    int sceneId = game->currentScene->id;
+
+    for (int i = game->enemies->size - 1; i >= 0; i--) {
+        Enemy* enemy = (Enemy*)dynamic_array_get(game->enemies, i);
+        if (!enemy || enemy->sceneId != sceneId) continue;
+
+        float distance = sqrt((worldPos.x - enemy->position.x) * (worldPos.x - enemy->position.x) +
+                              (worldPos.y - enemy->position.y) * (worldPos.y - enemy->position.y));
+        if (distance <= 20.0f) {
+            return enemy;
+        }
+    }
+
+    return NULL;
+}
+
+Enemy* createEnemyAtPosition(Game* game, Vector2 worldPos) {
+    if (!game) return NULL;
+
+    Vector2 snappedPos = snapToGrid(game->editorGrid, worldPos);
+
+    int maxId = 0;
+    for (int i = 0; i < game->enemies->size; i++) {
+        Enemy* enemy = (Enemy*)dynamic_array_get(game->enemies, i);
+        if (enemy && enemy->id > maxId) maxId = enemy->id;
+    }
+
+    Enemy* newEnemy = createEnemy(maxId + 1, game->currentScene->id, snappedPos, snappedPos, snappedPos, 2.0f, false);
+    addEnemyToGame(game, newEnemy);
+    return newEnemy;
+}
+
+void removeEnemyFromGame(Game* game, Enemy* enemy) {
+    if (!game || !game->enemies || !enemy) return;
+
+    for (int i = 0; i < game->enemies->size; i++) {
+        Enemy* obj = (Enemy*)dynamic_array_get(game->enemies, i);
+        if (obj == enemy) {
+            destroyEnemy(obj);
+            dynamic_array_remove(game->enemies, i);
             break;
         }
     }

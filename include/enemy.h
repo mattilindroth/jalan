@@ -1,7 +1,7 @@
 #ifndef ENEMY_HH
 #define ENEMY_HH
 
-#include "raylib.h"
+#include <raylib.h>
 #include <stdlib.h>
 #include <stdbool.h>
 
@@ -18,8 +18,12 @@ typedef struct Enemy {
     int sceneId;
     Vector2 position;
     enum EnemyState state;
+    bool doesPatrol;
     Vector2 patrolPointA;
     Vector2 patrolPointB;
+    Vector2 lastKnownPlayerPosition;
+    Vector2 searchOrigin;
+    Vector2 lookAtDirection;
     float speed;
 
     // Add other enemy-related properties here
@@ -28,7 +32,7 @@ typedef struct Enemy {
 #endif // ENEMY_HH
 
 //Create a new enemy object
-Enemy* createEnemy(int id, int sceneId, Vector2 position, Vector2 patrolPointA, Vector2 patrolPointB, float speed, bool hasLight);
+Enemy* createEnemy(int id, int sceneId, Vector2 position, Vector2 patrolPointA, Vector2 patrolPointB, float speed, bool doesPatrol);
 
 void renderEnemy(Enemy* enemy);
 
