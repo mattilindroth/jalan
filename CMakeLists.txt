@@ -16,15 +16,21 @@ link_directories(lib)
 add_executable(jalan           game/src/main.c
                                engine/src/jalan_engine.c
                                engine/src/sprite.c
+                               engine/src/entity.c
                                engine/src/dynamic_array.c
-                               engine/src/parallax.c)
+                               engine/src/parallax.c
+                               engine/src/cJSON.c
+                               engine/src/asset_loader.c)
 
 
 add_executable(editor          editor/src/main.c
                                engine/src/jalan_engine.c
                                engine/src/sprite.c
+                               engine/src/entity.c
                                engine/src/dynamic_array.c
                                engine/src/parallax.c
+                               engine/src/cJSON.c
+                               engine/src/asset_loader.c
                                editor/src/nuklear_impl.c
                                editor/src/ui.c)                                  
 

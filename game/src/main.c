@@ -2,6 +2,13 @@
 #include "raylib.h"
 #include "jalan_engine.h"
 
+//Todo. These should be configurable in the editor, not harad coded.
+#define PARALLAX_LAYER_STATIC_BACKGROUND 0
+#define PARALLAX_LAYER_ROLLING_BACKGROUND 1
+#define PARALLAX_LAYER_GAME_ENTITIES 2
+#define PARALLAX_LAYER_ROLLING_FOREGROUND 3 
+#define PARALLAX_LAYER_STATIC_FOREGROUND 4
+
 #define SCREEN_WIDTH 1280
 #define SCREEN_HEIGHT 800
 
@@ -42,7 +49,9 @@ int main(int argc, char *argv[]) {
 
     Sprite *wallSprite = sprite_create(wallTexture, (Vector2){100, 100});
 
-    jalan_engine_add_sprite(engine, wallSprite);
+    Entity *wallEntity = entity_create(wallSprite);
+
+    jalan_engine_add_entity(engine, wallEntity, PARALLAX_LAYER_GAME_ENTITIES);
     
     while (!WindowShouldClose()) {       
 

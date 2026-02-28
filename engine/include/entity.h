@@ -4,6 +4,7 @@
 #include "raylib.h"
 #include "sprite.h"
 
+typedef struct ParallaxLayer ParallaxLayer;
 typedef struct Entity Entity;
 
 typedef void (*EntityCollisionCallback)(Entity *self, Entity *other);
@@ -28,6 +29,7 @@ typedef struct Entity {
     Collider *collider;
     //EntityMoveCallback onMove;
     Sprite *sprite;
+    ParallaxLayer *parallaxLayer; // Pointer to the parallax layer this entity belongs to
 } Entity;
 
 Entity *entity_create(Sprite *sprite);

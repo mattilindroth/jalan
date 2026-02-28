@@ -22,7 +22,7 @@ void ui_update(UI *ui) {
     // declare your UI
 
     //Declare top menu
-    if(nk_begin(ui->ctx, "Top Menu", nk_rect(0,0,ui->screen_width,30), NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER)) {
+    if(nk_begin(ui->ctx, "Top Menu", nk_rect(0,0,ui->screen_width,TOP_MENU_HEIGHT), NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER)) {
         nk_menubar_begin(ui->ctx);
         nk_layout_row_static(ui->ctx, 25, 60, 3);
 
@@ -47,7 +47,7 @@ void ui_update(UI *ui) {
     }
     nk_end(ui->ctx);
 
-    if (nk_begin(ui->ctx, "My Panel", nk_rect(0,30,200,500), NK_WINDOW_BORDER)) {
+    if (nk_begin(ui->ctx, "My Panel", nk_rect(0,TOP_MENU_HEIGHT,LEFT_PANEL_WIDTH,500), NK_WINDOW_BORDER)) {
         nk_layout_row_dynamic(ui->ctx, 30, 1);
         if (nk_button_label(ui->ctx, "Click me")) { /* ... */ }
     }

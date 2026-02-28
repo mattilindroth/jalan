@@ -131,21 +131,12 @@ void sprite_render(Sprite *sprite) {
         sourceRect.height * sprite->scale.y
     };
     
-    // Calculate origin for rotation and flipping
-    Vector2 origin = {
-        sourceRect.width / 2.0f,
-        sourceRect.height / 2.0f
-    };
-    
-    // Apply flipping by adjusting the origin and scale
-    if (sprite->flipX) {
-        origin.x = sourceRect.width - origin.x;
-        destRect.width *= -1; // Flip horizontally by negating width
-    }
-    if (sprite->flipY) {
-        origin.y = sourceRect.height - origin.y;
-        destRect.height *= -1; // Flip vertically by negating height
-    }
+    // Use the sprite's own origin (defaults to {0,0}, i.e. top-left)
+    Vector2 origin = sprite->origin;
+
+    // Apply flipping by negating the source rect dimensions
+    if (sprite->flipX) sourceRect.width  *= -1;
+    if (sprite->flipY) sourceRect.height *= -1;
     
     DrawTexturePro(*sprite->texture, sourceRect, destRect, origin, sprite->rotation, sprite->tint);
 }

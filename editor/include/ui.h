@@ -3,6 +3,11 @@
 
 #include "raylib-nuklear.h"
 
+#define TOP_MENU_HEIGHT 30
+#define DEFAULT_FONT_SIZE 18
+#define LEFT_PANEL_WIDTH 200
+
+
 typedef struct UI {
     struct nk_context *ctx;
     unsigned int screen_width;

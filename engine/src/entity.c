@@ -11,6 +11,7 @@ Entity *entity_create(Sprite *sprite) {
     entity->sprite = sprite;
     entity->collider = NULL;
     entity->mover = NULL;
+    entity->parallaxLayer = NULL;
     return entity;
 }
 
