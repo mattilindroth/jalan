@@ -32,6 +32,7 @@ add_executable(editor          editor/src/main.c
                                engine/src/cJSON.c
                                engine/src/asset_loader.c
                                editor/src/nuklear_impl.c
+                               editor/src/editor_state.c
                                editor/src/ui.c)                                  
 
 # Link raylib

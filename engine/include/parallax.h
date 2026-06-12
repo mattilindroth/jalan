@@ -8,6 +8,7 @@ typedef struct ParallaxLayer {
     int id;
     float speed;
     DynamicArray *entities; // Array of Entity pointers
+    
 } ParallaxLayer;
 
 typedef struct Parallax {

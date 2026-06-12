@@ -12,7 +12,9 @@ typedef struct JalanEngine {
     int window_width;
     int window_height;
     const char* window_title;
-    DynamicArray *textures;
+    Texture2D *textures;
+    Texture2D *atlasTexture;
+    Texture2D *sprites;
     DynamicArray *entities;
     AssetLoader *assetLoader;
     Parallax *parallax;
@@ -21,6 +23,10 @@ typedef struct JalanEngine {
 JalanEngine *jalan_engine_init(int window_width, int window_height, const char* window_title);
 
 Texture2D* jalan_engine_load_texture(JalanEngine *engine, const char* file_path);
+
+Texture2D *jalan_engine_load_sprites(JalanEngine *engine, const char* file_path);
+
+ParallaxLayer *jalan_engine_get_entity_parallax_layer(JalanEngine *engine, Entity *entity);
 
 void jalan_engine_add_parallax_layer(JalanEngine *engine, int layerIndex, float speed);
 

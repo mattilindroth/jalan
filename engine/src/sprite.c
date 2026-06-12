@@ -21,11 +21,17 @@ Animation *animation_create(int id, float frameSpeed, Vector2 offset) {
 
 void animation_add_frame(Animation *animation, Rectangle frame) {
     if (!animation) return;
-    dynamic_array_push(animation->frames, &frame);
+    Rectangle *heap_frame = (Rectangle *)malloc(sizeof(Rectangle));
+    if (!heap_frame) return;
+    *heap_frame = frame;
+    dynamic_array_push(animation->frames, heap_frame);
 }
 
 Animation *animation_destroy(Animation *animation) {
     if (!animation) return NULL;
+    for (size_t i = 0; i < dynamic_array_size(animation->frames); i++) {
+        free(dynamic_array_get(animation->frames, i));
+    }
     dynamic_array_destroy(animation->frames);
     free(animation);
     return NULL;

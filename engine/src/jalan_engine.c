@@ -13,7 +13,9 @@ JalanEngine *jalan_engine_init(int window_width, int window_height, const char* 
     engine->window_width = window_width;
     engine->window_height = window_height;
     engine->window_title = window_title;
-    engine->textures = dynamic_array_create_default();
+    engine->textures = NULL;
+    engine->atlasTexture = NULL;
+    engine->sprites = NULL;
     engine->entities = dynamic_array_create_default();
     engine->assetLoader = asset_loader_create();
     engine->parallax = parallax_create();
@@ -51,8 +53,44 @@ Texture2D* jalan_engine_load_texture(JalanEngine *engine, const char* file_path)
         return NULL;
     }
     
-    dynamic_array_push(engine->textures, texture);
+    engine->textures = texture; // Store the texture in the engine's dynamic array
     return texture;
+}
+
+Texture2D *jalan_engine_load_sprites(JalanEngine *engine, const char* file_path) {
+    if (!engine) {
+        fprintf(stderr, "JalanEngine is not initialized\n");
+        return NULL;
+    }
+
+    Texture2D *sprites = (Texture2D *)malloc(sizeof(Texture2D));
+    if (!sprites) {
+        fprintf(stderr, "Failed to allocate memory for Texture2D\n");
+        return NULL;
+    }
+
+    *sprites = LoadTexture(file_path);
+    if (sprites->id == 0) {
+        fprintf(stderr, "Failed to load texture: %s\n", file_path);
+        free(sprites);
+        return NULL;
+    }
+    
+    engine->sprites = sprites; // Store the texture in the engine's dynamic array
+    return sprites;
+}
+
+ParallaxLayer *jalan_engine_get_entity_parallax_layer(JalanEngine *engine, Entity *entity) {
+    if (!engine) {
+        fprintf(stderr, "JalanEngine is not initialized\n");
+        return NULL;
+    }
+    if (!entity) {
+        fprintf(stderr, "Entity is NULL\n");
+        return NULL;
+    }
+    
+    return entity->parallaxLayer;
 }
 
 void jalan_engine_add_entity(JalanEngine *engine, Entity *entity, int parallaxLayerIndex) {
@@ -116,10 +154,13 @@ JalanEngine *jalan_engine_destroy(JalanEngine *engine) {
     }
 
     // Unload textures
-    for (size_t i = 0; i < dynamic_array_size(engine->textures); i++) {
-        Texture2D *texture = (Texture2D *)dynamic_array_get(engine->textures, i);
-        UnloadTexture(*texture);
-        free(texture);
+    if (engine->textures) {
+        UnloadTexture(*engine->textures);
+        free(engine->textures);
+    }
+    if (engine->sprites) {
+        UnloadTexture(*engine->sprites);
+        free(engine->sprites);
     }
 
     // Unload entities
@@ -131,7 +172,7 @@ JalanEngine *jalan_engine_destroy(JalanEngine *engine) {
     //Close window and OpenGL context
     CloseWindow();
 
-    dynamic_array_destroy(engine->textures);
+
     dynamic_array_destroy(engine->entities);
     asset_loader_destroy(engine->assetLoader);
     parallax_destroy(engine->parallax);
